@@ -1,5 +1,7 @@
 from pathlib import Path
 import re
+import json
+from datetime import datetime, timezone
 from typing import Any
 
 import pandas as pd
@@ -106,3 +108,34 @@ def write_clean_jobs(
     path.parent.mkdir(parents=True, exist_ok=True)
     cleaned.to_csv(path, index=False, encoding="utf-8-sig")
     return cleaned, report
+
+
+def write_cleaning_record(
+    report: dict[str, Any],
+    record_path: str | Path,
+    *,
+    source_path: str = "",
+    cleaned_path: str = "",
+    source: str = "BOSS直聘",
+) -> Path:
+    """保存一次清洗统计和输入输出路径。"""
+
+    path = Path(record_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "source": source,
+        "source_path": source_path,
+        "cleaned_path": cleaned_path,
+        "rules": {
+            "deduplicate": "按非空 job_id 保留首次记录",
+            "missing_text": "文本字段保留为空",
+            "missing_salary": "薪资无法解析时保留为空，不填 0",
+            "salary_unit": "人民币元/月；元/天按 21.75 个工作日折算",
+            "city": "取城市名称并去除末尾‘市’",
+            "skills_and_benefits": "统一使用英文分号分隔并去重",
+        },
+        "statistics": report,
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return path

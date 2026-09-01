@@ -6,7 +6,7 @@
   "fixture_note": "由已验证的小范围采集结果整理，已移除招聘者、登录态和平台内部标识。",
   "jobs": [
     {
-      "job_id": "fixture-boss-001",
+      "job_id": "b61d9ca3dcd4ffde",
       "title": "AI大数据分析师",
       "salary": "12-24K",
       "location": "上海·浦东新区·陆家嘴",
@@ -16,10 +16,10 @@
       "company_industry": "互联网金融",
       "skills": "",
       "welfare": "五险一金 | 餐补 | 年终奖",
-      "job_link": "https://www.zhipin.com/job_detail/fixture-boss-001.html"
+      "job_link": "https://www.zhipin.com/job_detail/3c3cddc8b3b3f20b0nJ92dq0GFVX.html"
     },
     {
-      "job_id": "fixture-boss-002",
+      "job_id": "7eecdef899e0987e",
       "title": "大数据分析师",
       "salary": "7-10K",
       "location": "上海·闵行区·虹桥",
@@ -29,10 +29,10 @@
       "company_industry": "互联网",
       "skills": "SQL | Excel",
       "welfare": "生日福利 | 团建聚餐 | 包吃",
-      "job_link": "https://www.zhipin.com/job_detail/fixture-boss-002.html"
+      "job_link": "https://www.zhipin.com/job_detail/d54c43aa9587f4460nJ63Ni6EVVU.html"
     },
     {
-      "job_id": "fixture-boss-003",
+      "job_id": "d5cc385e49ca5d14",
       "title": "大数据开发实习生",
       "salary": "500-550元/天",
       "location": "上海·杨浦区·五角场",
@@ -42,10 +42,10 @@
       "company_industry": "互联网",
       "skills": "Hive | Spark | Flink | Kafka | Python | Java",
       "welfare": "住房补贴 | 五险一金 | 带薪年假",
-      "job_link": "https://www.zhipin.com/job_detail/fixture-boss-003.html"
+      "job_link": "https://www.zhipin.com/job_detail/cf822033cf3481530nF939-7EVtY.html"
     },
     {
-      "job_id": "fixture-boss-004",
+      "job_id": "dc8add383e6dfd89",
       "title": "高级大数据运维工程师",
       "salary": "8-12K·13薪",
       "location": "上海·虹口区·北外滩",
@@ -55,7 +55,7 @@
       "company_industry": "计算机软件",
       "skills": "Linux | Hadoop | Spark",
       "welfare": "五险一金 | 绩效奖金 | 定期体检",
-      "job_link": "https://www.zhipin.com/job_detail/fixture-boss-004.html"
+      "job_link": "https://www.zhipin.com/job_detail/34490056e86b15530nN72dS_FVtV.html"
     }
   ]
 }

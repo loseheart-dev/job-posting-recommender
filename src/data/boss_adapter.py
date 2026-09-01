@@ -64,6 +64,8 @@ def load_upstream_records(path: str | Path) -> list[dict[str, Any]]:
     source_path = Path(path)
     if not source_path.exists():
         raise FileNotFoundError(f"上游结果文件不存在: {source_path}")
+    if source_path.stat().st_size == 0:
+        raise ValueError("上游结果文件为空")
     if source_path.suffix.lower() == ".json":
         try:
             return _records_from_json(json.loads(source_path.read_text(encoding="utf-8")))

@@ -2,6 +2,8 @@
 
 面向大学生求职的岗位数据分析与个性化推荐系统。
 
+项目以在线招聘平台岗位数据采集为数据入口，先采集原始岗位信息，再完成清洗、分析、预测、推荐和可视化。首期先选择一个平台和明确的岗位范围跑通采集闭环，后续再扩展数据来源。
+
 ## 本地运行
 
 ```bash
@@ -11,7 +13,7 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-没有清洗后数据时，页面会显示数据准备提示；数据文件放入 `data/processed/jobs.csv` 后即可由后端模块接入。
+岗位采集结果先保存到 `data/raw/`，经清洗后输出到 `data/processed/jobs.csv`。没有清洗后数据时，页面会显示数据准备提示。采集过程需要记录平台、采集范围、时间和数据来源，不采集个人联系方式、账号信息等敏感内容。
 
 ## 并行开发边界
 
@@ -19,7 +21,7 @@ streamlit run app.py
 |---|---|---|---|
 | `feat/lushihao-algorithm` | 卢世豪 | KMeans 聚类、随机森林薪资预测 | 确认清洗数据字段和模型输入 |
 | `feat/dingweizhe-recommendation` | 丁伟哲 | TF-IDF 推荐、匹配技能和缺失技能解释 | 确认岗位文本字段和学生画像 |
-| `feat/zhengweihao-data-cleaning` | 郑维豪 | 数据采集、清洗、数据字典 | 确认公开数据源并统计原始字段 |
+| `feat/zhengweihao-data-cleaning` | 郑维豪 | 在线岗位数据采集、清洗、数据字典 | 确定首期平台和采集范围，统计原始字段 |
 | `feat/xuzhiling-backend-integration` | 徐挚凌 | 数据读取、筛选、统计、算法调用 | 固定数据路径和服务函数签名 |
 | `feat/wangyujie-frontend` | 王宇杰 | Streamlit 页面、交互和图表 | 搭好四个页面功能区 |
 
@@ -41,7 +43,7 @@ src/data/                 数据读取和清洗
 src/algorithms/           聚类、薪资预测、个性化推荐
 src/services/             筛选、统计和模块联调
 src/ui/                   页面展示和图表
-data/raw/                 原始数据，不提交真实敏感数据
+data/raw/                 在线采集的原始岗位数据，不提交真实敏感数据
 data/processed/           清洗后数据
 ```
 

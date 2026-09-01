@@ -1,0 +1,38 @@
+[
+  {
+    "job_id": "fixture-boss-001",
+    "title": "AI大数据分析师",
+    "salary": "12-24K",
+    "location": "上海·浦东新区·陆家嘴",
+    "tags_list": "1-3年 | 本科",
+    "skill_tags": ["Python", "SQL", "pandas"],
+    "jd": "负责业务数据整理、指标分析和可视化，参与数据报表建设与分析模型维护，能够根据业务问题提出可执行的数据分析建议。"
+  },
+  {
+    "job_id": "fixture-boss-002",
+    "title": "大数据分析师",
+    "salary": "7-10K",
+    "location": "上海·闵行区·虹桥",
+    "tags_list": "经验不限 | 本科",
+    "skill_tags": ["SQL", "Excel"],
+    "jd": "负责日常数据处理、报表维护和业务数据分析，配合团队完成数据质量检查、指标统计及分析结果整理。"
+  },
+  {
+    "job_id": "fixture-boss-003",
+    "title": "大数据开发实习生",
+    "salary": "500-550元/天",
+    "location": "上海·杨浦区·五角场",
+    "tags_list": "本科",
+    "skill_tags": ["Hive", "Spark", "Flink", "Kafka", "Python", "Java"],
+    "jd": "参与数据平台和数据仓库开发，完成数据处理任务、离线任务维护和开发文档整理，在指导下排查数据任务运行问题。"
+  },
+  {
+    "job_id": "fixture-boss-004",
+    "title": "高级大数据运维工程师",
+    "salary": "8-12K·13薪",
+    "location": "上海·虹口区·北外滩",
+    "tags_list": "3-5年 | 本科",
+    "skill_tags": ["Linux", "Hadoop", "Spark"],
+    "jd": "负责大数据平台运行维护、任务监控和故障排查，参与集群资源管理、运行指标分析及平台稳定性改进。"
+  }
+]

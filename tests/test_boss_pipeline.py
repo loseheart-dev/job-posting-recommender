@@ -11,7 +11,7 @@ from src.data.boss_adapter import (
     map_boss_records,
     parse_salary,
 )
-from src.data.cleaner import clean_jobs_with_report
+from src.data.cleaner import clean_jobs_with_report, write_clean_jobs
 from src.data.schema import JOB_COLUMNS
 from src.data.traversal import CrawlTask, VisitResult, build_search_tasks, traverse_tasks
 
@@ -36,22 +36,31 @@ class BossPipelineTests(unittest.TestCase):
     def test_json_csv_import_and_mapping(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            json_path = root / "jobs.json"
-            json_path.write_text(json.dumps({"jobs": [upstream_job()]}), encoding="utf-8")
-            self.assertEqual(len(load_upstream_records(json_path)), 1)
-            details = [{"job_id": "job-1", "jd": "岗位描述"}]
+            fixture_dir = Path(__file__).parent / "fixtures"
+            json_path = fixture_dir / "boss_sample.json"
+            details = json.loads((fixture_dir / "boss_details_sample.json").read_text(encoding="utf-8"))
+            records = load_upstream_records(json_path)
+            self.assertEqual(len(records), 4)
             mapped = map_boss_records(
-                load_upstream_records(json_path), details, crawled_at="2026-01-01T00:00:00Z"
+                records, details, crawled_at="2026-01-01T00:00:00Z"
             )
             self.assertEqual(tuple(mapped[0]), JOB_COLUMNS)
             self.assertEqual(mapped[0]["city"], "上海")
-            self.assertEqual(mapped[0]["skills"], "Python;SQL")
-            self.assertEqual(mapped[0]["salary_avg"], 12500)
-            self.assertEqual(mapped[0]["description"], "岗位描述")
+            self.assertEqual(mapped[0]["skills"], "Python;SQL;pandas")
+            self.assertEqual(mapped[0]["salary_avg"], 18000)
+            self.assertIn("数据整理", mapped[0]["description"])
+            cleaned, report = clean_jobs_with_report(pd.DataFrame(mapped))
+            self.assertEqual(report["output_count"], 4)
+            self.assertEqual(cleaned.loc[2, "salary_avg"], 11418.75)
+            output_path = root / "processed" / "jobs.csv"
+            written, written_report = write_clean_jobs(pd.DataFrame(mapped), output_path)
+            self.assertEqual(len(written), 4)
+            self.assertEqual(written_report["output_count"], 4)
+            self.assertTrue(output_path.exists())
 
             csv_path = root / "jobs.csv"
-            pd.DataFrame([upstream_job()]).to_csv(csv_path, index=False)
-            self.assertEqual(len(load_upstream_records(csv_path)), 1)
+            pd.DataFrame(records).to_csv(csv_path, index=False)
+            self.assertEqual(len(load_upstream_records(csv_path)), 4)
             record, _ = import_upstream_result(
                 json_path,
                 root / "raw",
@@ -61,7 +70,7 @@ class BossPipelineTests(unittest.TestCase):
                 task_id="task-1",
             )
             self.assertEqual(record.status, "success")
-            self.assertEqual(record.raw_count, 1)
+            self.assertEqual(record.raw_count, 4)
             self.assertTrue(Path(record.raw_path).exists())
             self.assertIn('"task_id": "task-1"', (root / "tasks.jsonl").read_text(encoding="utf-8"))
 

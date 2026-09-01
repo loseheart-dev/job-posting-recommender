@@ -1,0 +1,61 @@
+{
+  "source": "BOSS直聘",
+  "keyword": "大数据",
+  "city": "上海",
+  "scraped_at": "2026-09-01T22:41:03+08:00",
+  "fixture_note": "由已验证的小范围采集结果整理，已移除招聘者、登录态和平台内部标识。",
+  "jobs": [
+    {
+      "job_id": "fixture-boss-001",
+      "title": "AI大数据分析师",
+      "salary": "12-24K",
+      "location": "上海·浦东新区·陆家嘴",
+      "tags": "1-3年 | 本科",
+      "boss_name": "示例科技",
+      "company_scale": "20-99人",
+      "company_industry": "互联网金融",
+      "skills": "",
+      "welfare": "五险一金 | 餐补 | 年终奖",
+      "job_link": "https://www.zhipin.com/job_detail/fixture-boss-001.html"
+    },
+    {
+      "job_id": "fixture-boss-002",
+      "title": "大数据分析师",
+      "salary": "7-10K",
+      "location": "上海·闵行区·虹桥",
+      "tags": "经验不限 | 本科",
+      "boss_name": "示例数据公司",
+      "company_scale": "20-99人",
+      "company_industry": "互联网",
+      "skills": "SQL | Excel",
+      "welfare": "生日福利 | 团建聚餐 | 包吃",
+      "job_link": "https://www.zhipin.com/job_detail/fixture-boss-002.html"
+    },
+    {
+      "job_id": "fixture-boss-003",
+      "title": "大数据开发实习生",
+      "salary": "500-550元/天",
+      "location": "上海·杨浦区·五角场",
+      "tags": "本科",
+      "boss_name": "示例互联网企业",
+      "company_scale": "10000人以上",
+      "company_industry": "互联网",
+      "skills": "Hive | Spark | Flink | Kafka | Python | Java",
+      "welfare": "住房补贴 | 五险一金 | 带薪年假",
+      "job_link": "https://www.zhipin.com/job_detail/fixture-boss-003.html"
+    },
+    {
+      "job_id": "fixture-boss-004",
+      "title": "高级大数据运维工程师",
+      "salary": "8-12K·13薪",
+      "location": "上海·虹口区·北外滩",
+      "tags": "3-5年 | 本科",
+      "boss_name": "示例信息技术公司",
+      "company_scale": "100-499人",
+      "company_industry": "计算机软件",
+      "skills": "Linux | Hadoop | Spark",
+      "welfare": "五险一金 | 绩效奖金 | 定期体检",
+      "job_link": "https://www.zhipin.com/job_detail/fixture-boss-004.html"
+    }
+  ]
+}

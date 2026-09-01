@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import csv
 import json
+import re
 import shutil
 import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
+
+from src.data.schema import JOB_COLUMNS
 
 
 UPSTREAM_REPOSITORY = "https://github.com/eatmoreduck/boss-zhipin-scraper"
@@ -155,3 +158,135 @@ def import_upstream_result(
     )
     append_task_record(record, task_record_path)
     return record, records
+
+
+_EDUCATION_VALUES = (
+    "初中及以下",
+    "中专/中技",
+    "高中",
+    "大专",
+    "本科",
+    "硕士",
+    "博士",
+    "学历不限",
+)
+_WORK_TYPE_VALUES = ("全职", "实习", "校招", "兼职", "远程")
+
+
+def _text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, (list, tuple, set)):
+        return " | ".join(str(item).strip() for item in value if str(item).strip())
+    return str(value).strip()
+
+
+def _split_values(value: Any) -> list[str]:
+    return [part.strip() for part in re.split(r"\s*[|｜,，;；]\s*", _text(value)) if part.strip()]
+
+
+def normalize_delimited(value: Any) -> str:
+    """把上游标签统一成项目约定的英文分号格式。"""
+
+    seen: list[str] = []
+    for part in _split_values(value):
+        if part not in seen:
+            seen.append(part)
+    return ";".join(seen)
+
+
+def parse_salary(text: Any) -> tuple[float | None, float | None, float | None]:
+    """解析 BOSS 月薪或日薪文本，结果统一为人民币元/月。"""
+
+    salary_text = _text(text).replace(" ", "")
+    numbers = [float(item) for item in re.findall(r"\d+(?:\.\d+)?", salary_text)]
+    if not numbers:
+        return None, None, None
+    values = numbers[:2]
+    if "元/天" in salary_text or "元/日" in salary_text:
+        values = [value * 21.75 for value in values]
+    elif "万" in salary_text and not re.search(r"[Kk千]", salary_text):
+        values = [value * 10000 for value in values]
+    elif re.search(r"[Kk千]", salary_text):
+        values = [value * 1000 for value in values]
+    lower, upper = min(values), max(values)
+    return lower, upper, (lower + upper) / 2
+
+
+def _location_city(value: Any) -> str:
+    location = _text(value)
+    return re.split(r"\s*[·•|｜/]\s*", location, maxsplit=1)[0].removesuffix("市").strip()
+
+
+def _tag_fields(value: Any) -> tuple[str, str, str]:
+    experience: list[str] = []
+    education: list[str] = []
+    work_type: list[str] = []
+    for tag in _split_values(value):
+        if tag in _EDUCATION_VALUES:
+            education.append(tag)
+        elif tag in _WORK_TYPE_VALUES:
+            work_type.append(tag)
+        else:
+            experience.append(tag)
+    return ";".join(experience), ";".join(education), ";".join(work_type)
+
+
+def _record_id(record: dict[str, Any]) -> str:
+    return _text(record.get("job_id") or record.get("encrypt_job_id") or record.get("encryptJobId"))
+
+
+def map_boss_records(
+    records: Iterable[dict[str, Any]],
+    details: Iterable[dict[str, Any]] | None = None,
+    *,
+    crawled_at: str | None = None,
+) -> list[dict[str, Any]]:
+    """把上游列表和详情记录转换为项目标准岗位字段。"""
+
+    detail_by_id = {_record_id(item): item for item in (details or ()) if _record_id(item)}
+    timestamp = crawled_at or utc_now()
+    mapped: list[dict[str, Any]] = []
+    for raw in records:
+        if not isinstance(raw, dict):
+            continue
+        job_id = _record_id(raw)
+        detail = detail_by_id.get(job_id, {})
+        salary_text = _text(raw.get("salary") or raw.get("salaryDesc"))
+        salary_min, salary_max, salary_avg = parse_salary(salary_text)
+        tags = raw.get("tags") or raw.get("tags_list") or raw.get("job_labels")
+        experience, education, work_type = _tag_fields(tags)
+        mapped.append(
+            {
+                "job_id": job_id,
+                "title": _text(raw.get("title") or raw.get("jobName") or detail.get("title")),
+                "company": _text(
+                    raw.get("company")
+                    or raw.get("boss_name")
+                    or raw.get("brand_name")
+                    or raw.get("brandName")
+                    or detail.get("company")
+                ),
+                "company_intro": _text(raw.get("company_intro") or raw.get("companyIntro")),
+                "company_size": _text(raw.get("company_scale") or raw.get("brandScaleName")),
+                "company_nature": _text(raw.get("company_nature") or raw.get("companyNature")),
+                "industry": _text(
+                    raw.get("company_industry") or raw.get("brandIndustry") or raw.get("industry")
+                ),
+                "city": _location_city(raw.get("location") or detail.get("location")),
+                "work_type": work_type,
+                "experience": experience,
+                "education": education,
+                "skills": normalize_delimited(raw.get("skills") or detail.get("skill_tags")),
+                "description": _text(raw.get("description") or detail.get("jd")),
+                "benefits": normalize_delimited(raw.get("welfare") or raw.get("benefits")),
+                "salary_text": salary_text,
+                "salary_min": salary_min,
+                "salary_max": salary_max,
+                "salary_avg": salary_avg,
+                "source": BOSS_SOURCE,
+                "source_url": _text(raw.get("job_link") or raw.get("source_url") or detail.get("job_link")),
+                "crawled_at": timestamp,
+            }
+        )
+    return [{column: row.get(column, "") for column in JOB_COLUMNS} for row in mapped]

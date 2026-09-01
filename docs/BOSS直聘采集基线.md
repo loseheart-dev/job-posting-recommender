@@ -70,4 +70,49 @@ env PYTHONPATH=/tmp/boss-zhipin-scraper-review.P9R1od/repo/.deps \
 
 ## 5. 当前结论
 
-上游项目在本机可以启动，独立 Chrome CDP 和手动登录流程可以运行，BOSS 限定范围列表采集已验证。该结果只证明采集链路可用，不代表已经完成本项目的标准字段转换、清洗和服务接入。下一步在 `feat/lushihao-data-cleaning` 分支完成 BOSS 适配器和 `jobs.csv` 输出。
+上游项目在本机可以启动，独立 Chrome CDP 和手动登录流程可以运行，BOSS 限定范围列表采集已验证。当前分支已完成 BOSS 适配器、标准字段转换、清洗输出和异常案例验证，待阶段审核后进入数据接入联调。
+
+## 6. 联调交接记录
+
+### 6.1 接入顺序
+
+后端服务接入时按以下顺序调用：
+
+1. `src.data.boss_adapter.import_upstream_result`：读取上游 JSON/CSV，校验格式，将原始文件保存到 `data/raw/`，追加任务记录；
+2. `src.data.boss_adapter.map_boss_records`：按《接口约定》转换为 21 个标准岗位字段；
+3. `src.data.cleaner.write_clean_jobs`：执行文本、标签、城市、薪资统一和岗位去重，输出 `data/processed/jobs.csv`；
+4. `src.data.cleaner.write_cleaning_record`：将输入量、输出量、重复量、薪资异常和字段缺失统计写入 `data/processed/cleaning_record.json`。
+
+任务遍历由 `src.data.traversal.traverse_tasks` 提供，`strategy` 使用 `bfs` 或 `dfs`，输入任务由 `build_search_tasks` 根据关键词、城市和页数生成，返回值包含访问顺序、状态、结果数量和错误信息。
+
+### 6.2 接入路径和字段
+
+| 内容 | 路径或约定 |
+|---|---|
+| 上游原始输入 | BOSS 上游 JSON/CSV |
+| 项目原始结果 | `data/raw/boss_<task_id>_raw.json` 或 `.csv` |
+| 任务记录 | 由调用方传入路径，建议使用 `data/raw/task_records.jsonl` |
+| 标准岗位表 | `data/processed/jobs.csv` |
+| 清洗记录 | `data/processed/cleaning_record.json` |
+| 标准列顺序 | `src.data.schema.JOB_COLUMNS` |
+| 字段来源和缺失规则 | `docs/岗位数据字典.md`、`docs/接口约定.md` |
+
+标准岗位表固定包含 `job_id`、`title`、`company`、`company_intro`、`company_size`、`company_nature`、`industry`、`city`、`work_type`、`experience`、`education`、`skills`、`description`、`benefits`、`salary_text`、`salary_min`、`salary_max`、`salary_avg`、`source`、`source_url`、`crawled_at`。没有直接来源的字段留空，不根据其他字段推断。
+
+### 6.3 已验证内容
+
+- 正常 JSON/CSV 可以导入并完成字段映射、原始文件保存和任务记录追加；
+- 空文件、坏 JSON、缺字段、重复岗位、面议薪资和遍历回调异常均有验证；
+- BFS 和 DFS 均能返回不同访问顺序，并记录访问节点及失败状态；
+- 本地测试命令：
+
+```bash
+PYTHONPATH=. uv run --no-project --with 'pandas>=2.1,<3' python3 -m unittest discover -s tests -v
+PYTHONPATH=. uv run --no-project --with 'pandas>=2.1,<3' python3 tests/smoke.py
+```
+
+本次结果为 `4 tests ... OK`，服务契约冒烟测试输出 `service contract smoke test passed`。真实 BOSS 采集基线为列表 15 条、详情有效 4 条；原始文件保存在仓库外，不进入提交记录。项目中的 `data/raw/` 和 `data/processed/` 运行产物按 `.gitignore` 管理。
+
+### 6.4 联调门槛
+
+本模块已经满足联调条件：调用入口明确，标准字段和路径已冻结，正常与异常案例已通过，原始结果不会被覆盖，清洗结果有统计记录。后续由卢世豪审核个人分支后安排数据接入；算法、服务和页面只读取 `data/processed/jobs.csv`，不直接读取原始文件，也不自行改写字段名。

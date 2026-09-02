@@ -33,6 +33,19 @@ RECOMMENDATION_COLUMNS = (
     "missing_skills",
     "reason",
 )
+MULTI_FACTOR_RECOMMENDATION_COLUMNS = (
+    "job_id",
+    "title",
+    "company",
+    "company_size",
+    "company_nature",
+    "industry",
+    "salary_range",
+    "match_probability",
+    "matched_skills",
+    "missing_skills",
+    "reason",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,14 +72,23 @@ class JobRecord:
 
 @dataclass(frozen=True, slots=True)
 class StudentProfile:
-    """Input contract shared by the recommendation algorithm and page."""
+    """Input contract shared by the recommendation algorithm and page.
+
+    Fields follow docs/接口约定.md section 3. `experience` is an extra
+    compatibility field for matching the job table's experience column.
+    """
 
     target_role: str = ""
+    education: str = ""
+    major: str = ""
+    school: str = ""
     skills: tuple[str, ...] = ()
     preferred_city: str = ""
-    experience: str = ""
+    work_years: float | None = None
+    work_experience: str = ""
     expected_salary_min: float | None = None
     expected_salary_max: float | None = None
+    experience: str = ""
 
     @classmethod
     def from_mapping(cls, values: Mapping[str, object]) -> "StudentProfile":
@@ -75,11 +97,21 @@ class StudentProfile:
             skills = tuple(skill.strip() for skill in raw_skills.split(";") if skill.strip())
         else:
             skills = tuple(str(skill).strip() for skill in raw_skills if str(skill).strip())
+        work_years = values.get("work_years")
+        try:
+            work_years = float(work_years) if work_years not in (None, "") else None
+        except (TypeError, ValueError):
+            work_years = None
         return cls(
             target_role=str(values.get("target_role", "") or ""),
+            education=str(values.get("education", "") or ""),
+            major=str(values.get("major", "") or ""),
+            school=str(values.get("school", "") or ""),
             skills=skills,
             preferred_city=str(values.get("preferred_city", "") or ""),
-            experience=str(values.get("experience", "") or ""),
+            work_years=work_years,
+            work_experience=str(values.get("work_experience", "") or ""),
             expected_salary_min=values.get("expected_salary_min"),
             expected_salary_max=values.get("expected_salary_max"),
+            experience=str(values.get("experience", "") or ""),
         )

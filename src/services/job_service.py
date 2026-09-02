@@ -21,7 +21,7 @@ def filter_jobs(jobs: pd.DataFrame, filters: dict[str, object]) -> pd.DataFrame:
     if keyword:
         searchable = result[["title", "company", "skills", "description"]].fillna("").agg(" ".join, axis=1)
         result = result[searchable.str.contains(keyword, case=False, regex=False)]
-    for key in ("city", "work_type", "experience"):
+    for key in ("city", "work_type", "experience", "education", "industry", "company_nature"):
         value = str(filters.get(key, "") or "").strip()
         if value:
             result = result[result[key].fillna("").astype(str).str.contains(value, case=False, regex=False)]

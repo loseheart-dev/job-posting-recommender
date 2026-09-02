@@ -9,7 +9,13 @@ import unittest
 import pandas as pd
 
 from src.algorithms.recommender import WEIGHTS, recommend_jobs, recommend_jobs_multifactor
-from src.data.schema import JOB_COLUMNS, MULTI_FACTOR_RECOMMENDATION_COLUMNS, RECOMMENDATION_COLUMNS, StudentProfile
+from src.data.schema import (
+    JOB_COLUMNS,
+    MULTI_FACTOR_RECOMMENDATION_COLUMNS,
+    RECOMMENDATION_COLUMNS,
+    REQUIRED_JOB_COLUMNS,
+    StudentProfile,
+)
 
 
 def sample_jobs() -> pd.DataFrame:
@@ -187,6 +193,13 @@ class RecommenderMultifactorTest(unittest.TestCase):
         # 缺 company_size 等非必要列时填空运行，不抛错（P1 修复：与接口说明一致）
         jobs = sample_jobs().drop(columns=["company_size", "company_nature", "industry"])
         result = recommend_jobs_multifactor({"target_role": "数据分析", "skills": "Python"}, jobs)
+        assert not result.empty
+        assert result.iloc[0]["company_size"] == ""
+        assert result.iloc[0]["industry"] == ""
+
+    def test_minimal_required_columns_fallback_to_empty(self) -> None:
+        jobs = sample_jobs().loc[:, REQUIRED_JOB_COLUMNS]
+        result = recommend_jobs_multifactor({"target_role": "数据分析"}, jobs)
         assert not result.empty
         assert result.iloc[0]["company_size"] == ""
         assert result.iloc[0]["industry"] == ""

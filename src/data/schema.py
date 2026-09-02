@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Mapping
 
 
+# 与《docs/接口约定.md》第 2 节“岗位数据表 data/processed/jobs.csv”保持一致。
 JOB_COLUMNS = (
     "job_id",
     "title",
@@ -78,7 +79,11 @@ MULTI_FACTOR_RECOMMENDATION_COLUMNS = (
 
 @dataclass(frozen=True, slots=True)
 class JobRecord:
-    """One canonical row from the cleaned job table."""
+    """One canonical row from the cleaned job table (aligned with JOB_COLUMNS).
+
+    The first three positional arguments remain job_id/title/skills for backward
+    compatibility; the new columns are appended after the original ones.
+    """
 
     job_id: str
     title: str
@@ -133,11 +138,15 @@ class StudentProfile:
             skills = tuple(skill.strip() for skill in raw_skills.split(";") if skill.strip())
         else:
             skills = tuple(str(skill).strip() for skill in raw_skills if str(skill).strip())
-        work_years = values.get("work_years")
-        try:
-            work_years = float(work_years) if work_years not in (None, "") else None
-        except (TypeError, ValueError):
-            work_years = None
+
+        def optional_float(value: object) -> float | None:
+            if value in (None, ""):
+                return None
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                raise ValueError(f"字段需要可转换为 float 的值，实际为: {value!r}")
+
         return cls(
             target_role=str(values.get("target_role", "") or ""),
             education=str(values.get("education", "") or ""),
@@ -145,9 +154,9 @@ class StudentProfile:
             school=str(values.get("school", "") or ""),
             skills=skills,
             preferred_city=str(values.get("preferred_city", "") or ""),
-            work_years=work_years,
+            work_years=optional_float(values.get("work_years")),
             work_experience=str(values.get("work_experience", "") or ""),
-            expected_salary_min=values.get("expected_salary_min"),
-            expected_salary_max=values.get("expected_salary_max"),
+            expected_salary_min=optional_float(values.get("expected_salary_min")),
+            expected_salary_max=optional_float(values.get("expected_salary_max")),
             experience=str(values.get("experience", "") or ""),
         )

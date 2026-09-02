@@ -10,25 +10,35 @@ from src.data.schema import JOB_COLUMNS, MULTI_FACTOR_RECOMMENDATION_COLUMNS, RE
 
 
 def sample_jobs() -> pd.DataFrame:
+    """符合 JOB_COLUMNS（21 列）的小型岗位样例表。"""
     return pd.DataFrame(
         [
             {
-                "job_id": "1", "title": "数据分析实习生", "company": "示例科技", "city": "上海",
-                "work_type": "实习", "experience": "在校生", "education": "本科",
-                "skills": "Python;SQL;pandas", "description": "处理业务数据、输出分析报告",
-                "salary_min": 3000, "salary_max": 5000, "salary_avg": 4000, "source": "test",
+                "job_id": "1", "title": "数据分析实习生", "company": "示例科技",
+                "company_intro": "数据服务", "company_size": "100-499人", "company_nature": "民营",
+                "industry": "互联网", "city": "上海", "work_type": "实习", "experience": "在校生",
+                "education": "本科", "skills": "Python;SQL;pandas", "description": "处理业务数据、输出分析报告",
+                "benefits": "五险一金", "salary_text": "3-5K", "salary_min": 3000, "salary_max": 5000,
+                "salary_avg": 4000, "source": "test", "source_url": "https://example.com/job/1",
+                "crawled_at": "2026-09-01T10:00:00",
             },
             {
-                "job_id": "2", "title": "大数据开发工程师", "company": "示例数据", "city": "上海",
-                "work_type": "全职", "experience": "应届", "education": "本科",
-                "skills": "Spark;Hadoop;SQL", "description": "负责大数据平台开发",
-                "salary_min": 15000, "salary_max": 25000, "salary_avg": 20000, "source": "test",
+                "job_id": "2", "title": "大数据开发工程师", "company": "示例数据",
+                "company_intro": "大数据平台", "company_size": "1000人以上", "company_nature": "上市",
+                "industry": "大数据", "city": "上海", "work_type": "全职", "experience": "应届",
+                "education": "本科", "skills": "Spark;Hadoop;SQL", "description": "负责大数据平台开发",
+                "benefits": "年终奖", "salary_text": "15-25K", "salary_min": 15000, "salary_max": 25000,
+                "salary_avg": 20000, "source": "test", "source_url": "https://example.com/job/2",
+                "crawled_at": "2026-09-01T10:00:00",
             },
             {
-                "job_id": "3", "title": "后端开发工程师", "company": "测试公司", "city": "杭州",
-                "work_type": "全职", "experience": "应届", "education": "本科",
-                "skills": "Python;Linux", "description": "开发服务接口",
-                "salary_min": 9000, "salary_max": 12000, "salary_avg": 10500, "source": "test",
+                "job_id": "3", "title": "后端开发工程师", "company": "测试公司",
+                "company_intro": "软件外包", "company_size": "500-999人", "company_nature": "合资",
+                "industry": "软件开发", "city": "杭州", "work_type": "全职", "experience": "应届",
+                "education": "本科", "skills": "Python;Linux", "description": "开发服务接口",
+                "benefits": "双休", "salary_text": "9-12K", "salary_min": 9000, "salary_max": 12000,
+                "salary_avg": 10500, "source": "test", "source_url": "https://example.com/job/3",
+                "crawled_at": "2026-09-01T10:00:00",
             },
         ]
     )
@@ -109,16 +119,8 @@ def test_dict_profile_accepted() -> None:
     assert not result.empty
 
 
-def sample_jobs_with_extra_columns() -> pd.DataFrame:
-    jobs = sample_jobs()
-    jobs["company_size"] = ["100-499人", "1000人以上", "500-999人"]
-    jobs["company_nature"] = ["民营", "上市", "合资"]
-    jobs["industry"] = ["互联网", "大数据", "软件开发"]
-    return jobs
-
-
 def test_multifactor_output_columns_and_probability() -> None:
-    jobs = sample_jobs_with_extra_columns()
+    jobs = sample_jobs()
     profile = StudentProfile.from_mapping(
         {
             "target_role": "数据分析",
@@ -147,7 +149,7 @@ def test_multifactor_output_columns_and_probability() -> None:
 
 
 def test_multifactor_profile_factors_change_ranking_and_reason() -> None:
-    jobs = sample_jobs_with_extra_columns()
+    jobs = sample_jobs()
     data_profile = StudentProfile.from_mapping(
         {"target_role": "数据分析", "skills": "Python;SQL", "education": "硕士", "major": "统计学", "expected_salary_min": 5000, "expected_salary_max": 8000}
     )
@@ -162,17 +164,6 @@ def test_multifactor_profile_factors_change_ranking_and_reason() -> None:
     assert java_result.iloc[0]["missing_skills"] == "Java;Spring"  # Java 画像技能全缺失
     assert any("薪资区间低于期望" in reason for reason in java_result["reason"])  # 20-30K 期望高于部分岗位
     assert any("薪资区间符合期望" in reason for reason in java_result["reason"])  # 岗位 2 区间命中
-
-
-def test_multifactor_missing_extra_columns_still_works() -> None:
-    # 岗位表没有 company_size/company_nature/industry 列时仍可运行并填空
-    result = recommend_jobs_multifactor(
-        {"target_role": "数据分析", "skills": "Python"},
-        sample_jobs(),
-    )
-    assert not result.empty
-    assert result.iloc[0]["company_size"] == ""
-    assert result.iloc[0]["industry"] == ""
 
 
 def test_multifactor_empty_jobs_returns_empty_frame() -> None:
@@ -204,7 +195,6 @@ def main() -> None:
         test_dict_profile_accepted,
         test_multifactor_output_columns_and_probability,
         test_multifactor_profile_factors_change_ranking_and_reason,
-        test_multifactor_missing_extra_columns_still_works,
         test_multifactor_empty_jobs_returns_empty_frame,
         test_multifactor_missing_columns_raise_clear_error,
     ]

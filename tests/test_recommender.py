@@ -1,12 +1,12 @@
 """丁伟哲推荐模块测试：正常案例 + 异常/空数据案例。
 
-运行：.venv/Scripts/python tests/test_recommender.py
+运行：.venv/Scripts/python -m tests.test_recommender
 """
 
 import pandas as pd
 
-from src.algorithms.recommender import recommend_jobs
-from src.data.schema import JOB_COLUMNS, RECOMMENDATION_COLUMNS, StudentProfile
+from src.algorithms.recommender import recommend_jobs, recommend_jobs_multifactor
+from src.data.schema import JOB_COLUMNS, MULTI_FACTOR_RECOMMENDATION_COLUMNS, RECOMMENDATION_COLUMNS, StudentProfile
 
 
 def sample_jobs() -> pd.DataFrame:
@@ -109,6 +109,89 @@ def test_dict_profile_accepted() -> None:
     assert not result.empty
 
 
+def sample_jobs_with_extra_columns() -> pd.DataFrame:
+    jobs = sample_jobs()
+    jobs["company_size"] = ["100-499人", "1000人以上", "500-999人"]
+    jobs["company_nature"] = ["民营", "上市", "合资"]
+    jobs["industry"] = ["互联网", "大数据", "软件开发"]
+    return jobs
+
+
+def test_multifactor_output_columns_and_probability() -> None:
+    jobs = sample_jobs_with_extra_columns()
+    profile = StudentProfile.from_mapping(
+        {
+            "target_role": "数据分析",
+            "education": "本科",
+            "major": "数据科学",
+            "school": "某大学",
+            "skills": "Python;SQL",
+            "preferred_city": "上海",
+            "work_years": 0,
+            "work_experience": "课程项目",
+            "expected_salary_min": 3000,
+            "expected_salary_max": 6000,
+            "experience": "在校生",
+        }
+    )
+    result = recommend_jobs_multifactor(profile, jobs, top_k=5)
+    assert not result.empty
+    assert list(result.columns) == list(MULTI_FACTOR_RECOMMENDATION_COLUMNS)
+    assert result.iloc[0]["job_id"] == "1"  # 数据画像 + 上海 + 在校生 + 薪资区间命中
+    assert result.iloc[0]["company_size"] == "100-499人"
+    assert result.iloc[0]["salary_range"] == "3000-5000 元/月"
+    assert 0.0 <= result.iloc[0]["match_probability"] <= 1.0
+    assert "学历符合（本科）" in result.iloc[0]["reason"]
+    assert "薪资区间符合期望" in result.iloc[0]["reason"]
+    assert "画像：学校某大学、工作年限0年、含工作经历" in result.iloc[0]["reason"]
+
+
+def test_multifactor_profile_factors_change_ranking_and_reason() -> None:
+    jobs = sample_jobs_with_extra_columns()
+    data_profile = StudentProfile.from_mapping(
+        {"target_role": "数据分析", "skills": "Python;SQL", "education": "硕士", "major": "统计学", "expected_salary_min": 5000, "expected_salary_max": 8000}
+    )
+    java_profile = StudentProfile.from_mapping(
+        {"target_role": "后端开发", "skills": "Java;Spring", "education": "大专", "major": "计算机", "expected_salary_min": 20000, "expected_salary_max": 30000}
+    )
+    data_result = recommend_jobs_multifactor(data_profile, jobs)
+    java_result = recommend_jobs_multifactor(java_profile, jobs)
+    # 画像变化必须改变输出，不能写死
+    assert not data_result.equals(java_result)
+    assert data_result.iloc[0]["job_id"] == "1"  # 数据画像最匹配数据分析岗
+    assert java_result.iloc[0]["missing_skills"] == "Java;Spring"  # Java 画像技能全缺失
+    assert any("薪资区间低于期望" in reason for reason in java_result["reason"])  # 20-30K 期望高于部分岗位
+    assert any("薪资区间符合期望" in reason for reason in java_result["reason"])  # 岗位 2 区间命中
+
+
+def test_multifactor_missing_extra_columns_still_works() -> None:
+    # 岗位表没有 company_size/company_nature/industry 列时仍可运行并填空
+    result = recommend_jobs_multifactor(
+        {"target_role": "数据分析", "skills": "Python"},
+        sample_jobs(),
+    )
+    assert not result.empty
+    assert result.iloc[0]["company_size"] == ""
+    assert result.iloc[0]["industry"] == ""
+
+
+def test_multifactor_empty_jobs_returns_empty_frame() -> None:
+    empty = pd.DataFrame(columns=JOB_COLUMNS)
+    result = recommend_jobs_multifactor({"target_role": "数据分析", "skills": "Python"}, empty)
+    assert result.empty
+    assert list(result.columns) == list(MULTI_FACTOR_RECOMMENDATION_COLUMNS)
+
+
+def test_multifactor_missing_columns_raise_clear_error() -> None:
+    bad = pd.DataFrame([{"job_id": "1", "title": "岗位"}])
+    try:
+        recommend_jobs_multifactor({"target_role": "数据分析"}, bad)
+    except ValueError as error:
+        assert "缺少必要字段" in str(error)
+    else:
+        raise AssertionError("缺字段应抛出明确错误")
+
+
 def main() -> None:
     tests = [
         test_normal_data_profile_returns_ranked_rows,
@@ -119,6 +202,11 @@ def main() -> None:
         test_no_common_text_returns_empty_frame,
         test_missing_columns_raise_clear_error,
         test_dict_profile_accepted,
+        test_multifactor_output_columns_and_probability,
+        test_multifactor_profile_factors_change_ranking_and_reason,
+        test_multifactor_missing_extra_columns_still_works,
+        test_multifactor_empty_jobs_returns_empty_frame,
+        test_multifactor_missing_columns_raise_clear_error,
     ]
     for test in tests:
         test()

@@ -23,7 +23,13 @@
 
 ## 徐挚凌任务（25051430）
 
-- [ ] 任务卡占位：待本人补充任务明细与勾选状态（已认领 R2 网站配置、采集任务启停）
+- [x] Z1 共享接口对齐：岗位表 21 列、筛选键 9 项、StudentProfile 10 字段（含 experience 兼容）、JobRecord 位置参数、必填 source/crawled_at
+- [x] Z2 网站配置服务 `site_service.py`：增删改查、启停、频率校验，site_name/base_url 必填
+- [x] Z3 采集任务调度服务 `task_service.py`：手动触发、状态/记录查询、不可更新字段与负计数校验、下次计划时间纯计算
+- [x] Z4 服务层测试 `test_site_task.py` 改写为 unittest，`unittest discover` 可自动发现
+- [ ] Z5 数据读取/筛选/统计接入真实清洗数据
+- [ ] Z6 算法调用适配（郑维豪分析、丁伟哲推荐）
+- [ ] Z7 与王宇杰页面集中联调 + README 启动说明
 
 ## 郑维豪任务（25051413）
 

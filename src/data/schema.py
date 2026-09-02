@@ -23,6 +23,17 @@ FILTER_KEYS = ("keyword", "city", "work_type", "experience", "salary_min", "sala
 CLUSTER_OUTPUT_COLUMNS = (*JOB_COLUMNS, "cluster_id")
 SALARY_OUTPUT_COLUMNS = (*JOB_COLUMNS, "predicted_salary")
 SALARY_METRIC_KEYS = ("mae", "r2")
+# 郑维豪：三类主题分析的输出字段（新增常量，不影响既有字段）
+SALARY_FACTOR_COLUMNS = ("factor", "impact_direction", "importance", "description")
+SKILL_GRAPH_KEYS = ("nodes", "edges", "skill_frequency")
+COMPANY_PROFILE_COLUMNS = (
+    "company",
+    "company_size",
+    "company_nature",
+    "industry",
+    "salary_summary",
+    "skill_summary",
+)
 RECOMMENDATION_COLUMNS = (
     "job_id",
     "title",

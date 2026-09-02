@@ -226,7 +226,7 @@ https://github.com/loseheart-dev/job-posting-recommender
 - 用了几个工具就导几份，命名随意（如 `trae.txt`、`chatgpt.txt`），文本格式即可，不要截图；
 三、每日日报（10 分钟，提交到`daily/` 目录）
 每天晚22：00 前，在仓库 daily/ 目录提交 D1.md…D6.md（当天写当天的），格式：
-# D1 日报 
+# D1 日报
 ## 昨日遗留问题的回答
 （系统每日反馈会给你留一个问题，次日回答；第 1 天没有这节）
 ## 今日目标

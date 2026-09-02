@@ -52,6 +52,16 @@ def _require_columns(jobs: pd.DataFrame, required: tuple[str, ...]) -> None:
         raise ValueError(f"岗位数据缺少必要字段: {', '.join(missing)}")
 
 
+def _multifactor_jobs(jobs: pd.DataFrame) -> pd.DataFrame:
+    """保留多因素推荐需要的标准列，缺失的可选列按空值补齐。"""
+    _require_columns(jobs, REQUIRED_JOB_COLUMNS)
+    result = jobs.copy()
+    for column in JOB_COLUMNS:
+        if column not in result.columns:
+            result[column] = ""
+    return result.loc[:, JOB_COLUMNS]
+
+
 def _job_texts(jobs: pd.DataFrame) -> list[str]:
     """岗位侧 TF-IDF 文本：标题、技能、描述、公司；缺列按空处理。"""
     columns = ["title", "skills", "description", "company"]
@@ -263,15 +273,15 @@ def recommend_jobs_multifactor(
     """
     if isinstance(profile, dict):
         profile = StudentProfile.from_mapping(profile)
-    _require_columns(jobs, REQUIRED_JOB_COLUMNS)
-    if jobs.empty or not _profile_has_content(profile):
+    result = _multifactor_jobs(jobs)
+    if result.empty or not _profile_has_content(profile):
         return pd.DataFrame(columns=MULTI_FACTOR_RECOMMENDATION_COLUMNS)
 
     profile_skills = set(profile.skills)
-    similarities = _text_similarity(profile.target_role, _job_texts(jobs)) if profile.target_role else None
+    similarities = _text_similarity(profile.target_role, _job_texts(result)) if profile.target_role else None
 
     rows: list[dict[str, object]] = []
-    for index, row in enumerate(jobs.itertuples(index=False)):
+    for index, row in enumerate(result.itertuples(index=False)):
         job_skills = _skill_set(row.skills)
         matched = sorted(profile_skills & job_skills)
         missing_skills = sorted(profile_skills - job_skills)

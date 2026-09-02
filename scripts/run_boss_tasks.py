@@ -89,6 +89,8 @@ def main() -> None:
         record_path=args.traversal_log,
     )
     print(json.dumps([record.to_dict() for record in records], ensure_ascii=False, indent=2))
+    if any(record.status == "failed" for record in records):
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

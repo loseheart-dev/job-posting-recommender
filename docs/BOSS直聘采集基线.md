@@ -83,7 +83,7 @@ env PYTHONPATH=/tmp/boss-zhipin-scraper-review.P9R1od/repo/.deps \
 3. `src.data.cleaner.write_clean_jobs`：执行文本、标签、城市、薪资统一和岗位去重，输出 `data/processed/jobs.csv`；
 4. `src.data.cleaner.write_cleaning_record`：将输入量、输出量、重复量、薪资异常和字段缺失统计写入 `data/processed/cleaning_record.json`。
 
-任务遍历由 `src.data.traversal.traverse_tasks` 提供，`strategy` 使用 `bfs` 或 `dfs`，输入任务由 `build_search_tasks` 根据关键词、城市和页数生成，返回值包含访问顺序、状态、结果数量和错误信息。
+任务遍历由 `src.data.traversal.traverse_tasks` 提供，`strategy` 使用 `bfs` 或 `dfs`。`build_search_tasks` 为每个关键词和城市生成一个根任务，任务的 `page` 表示本次上游请求的总页数，由上游一次性完成分页，避免把累计页数拆成多个任务后重复抓取。当前搜索任务是平铺根任务，因此没有子任务时 BFS 和 DFS 的访问顺序相同；遍历器已通过带子任务的测试验证两种策略的差异，后续增加任务依赖时可直接复用。
 
 ### 6.2 接入路径和字段
 

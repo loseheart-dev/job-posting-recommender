@@ -53,6 +53,8 @@ def _records_from_json(payload: Any) -> list[dict[str, Any]]:
         payload = payload.get("jobs", payload.get("data", payload))
     if not isinstance(payload, list):
         raise ValueError("BOSS JSON 必须是岗位列表，或包含 jobs/data 列表")
+    if not payload:
+        raise ValueError("BOSS JSON 没有岗位记录")
     if not all(isinstance(item, dict) for item in payload):
         raise ValueError("BOSS JSON 岗位记录必须都是对象")
     return payload
@@ -72,11 +74,29 @@ def load_upstream_records(path: str | Path) -> list[dict[str, Any]]:
         except json.JSONDecodeError as error:
             raise ValueError(f"BOSS JSON 格式错误: {error.msg}") from error
     if source_path.suffix.lower() == ".csv":
-        with source_path.open("r", encoding="utf-8-sig", newline="") as stream:
-            reader = csv.DictReader(stream)
-            if not reader.fieldnames:
-                raise ValueError("BOSS CSV 缺少表头")
-            return [dict(row) for row in reader]
+        try:
+            with source_path.open("r", encoding="utf-8-sig", newline="") as stream:
+                reader = csv.DictReader(stream, strict=True)
+                if not reader.fieldnames:
+                    raise ValueError("BOSS CSV 缺少表头")
+                raw_fieldnames = reader.fieldnames
+                fieldnames = [field.strip() for field in raw_fieldnames]
+                if any(not field for field in fieldnames):
+                    raise ValueError("BOSS CSV 表头包含空字段")
+                if len(set(fieldnames)) != len(fieldnames):
+                    raise ValueError("BOSS CSV 表头包含重复字段")
+                records: list[dict[str, Any]] = []
+                for line_number, row in enumerate(reader, start=2):
+                    if None in row:
+                        raise ValueError(f"BOSS CSV 第 {line_number} 行字段过多")
+                    if any(value is None for value in row.values()):
+                        raise ValueError(f"BOSS CSV 第 {line_number} 行字段缺失")
+                    records.append({field: row[raw] for field, raw in zip(fieldnames, raw_fieldnames)})
+                if not records:
+                    raise ValueError("BOSS CSV 没有岗位记录")
+                return records
+        except csv.Error as error:
+            raise ValueError(f"BOSS CSV 格式错误: {error}") from error
     raise ValueError("上游结果只支持 JSON 或 CSV")
 
 

@@ -57,7 +57,7 @@ def append_traversal_record(record: TraversalRecord, path: str | Path) -> Path:
 def build_search_tasks(
     keywords: Iterable[str], cities: Iterable[str], pages: int = 1
 ) -> list[CrawlTask]:
-    """按关键词、城市和页码生成稳定的待采集任务。"""
+    """按关键词和城市生成任务，page 表示本次上游请求的总页数。"""
 
     if pages < 1:
         raise ValueError("采集页数必须大于 0")
@@ -65,16 +65,15 @@ def build_search_tasks(
     index = 0
     for keyword in keywords:
         for city in cities:
-            for page in range(1, pages + 1):
-                index += 1
-                tasks.append(
-                    CrawlTask(
-                        task_id=f"search-{index}",
-                        keyword=str(keyword).strip(),
-                        city=str(city).strip(),
-                        page=page,
-                    )
+            index += 1
+            tasks.append(
+                CrawlTask(
+                    task_id=f"search-{index}",
+                    keyword=str(keyword).strip(),
+                    city=str(city).strip(),
+                    page=pages,
                 )
+            )
     return tasks
 
 

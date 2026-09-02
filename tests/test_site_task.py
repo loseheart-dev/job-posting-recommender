@@ -1,3 +1,4 @@
+import unittest
 from datetime import datetime
 
 from src.services.site_service import (
@@ -13,7 +14,6 @@ from src.services.site_service import (
     update_site,
 )
 from src.services.task_service import (
-    TASK_STATUSES,
     compute_next_run,
     get_task,
     list_tasks,
@@ -37,145 +37,124 @@ def sample_site_values() -> dict:
     }
 
 
-def main() -> None:
-    reset_sites()
-    reset_tasks()
+class SiteServiceTest(unittest.TestCase):
+    def setUp(self):
+        reset_sites()
+        reset_tasks()
 
-    # --- 网站配置：正常案例 ---
-    site = add_site(sample_site_values())
-    assert site.site_id == "boss_zhipin"
-    assert site.enabled is True
-    assert site.keywords == ("大数据", "数据分析")
-    assert site.cities == ("北京", "上海")
-    assert len(list_sites()) == 1
-    assert get_site("boss_zhipin") is site
+    def test_add_and_query_site(self):
+        site = add_site(sample_site_values())
+        self.assertEqual(site.site_id, "boss_zhipin")
+        self.assertTrue(site.enabled)
+        self.assertEqual(site.keywords, ("大数据", "数据分析"))
+        self.assertEqual(site.cities, ("北京", "上海"))
+        self.assertEqual(len(list_sites()), 1)
+        self.assertIs(get_site("boss_zhipin"), site)
 
-    updated = update_site("boss_zhipin", {"frequency": "twice_daily", "max_depth": 3})
-    assert updated.frequency == "twice_daily"
-    assert updated.max_depth == 3
-    assert set_site_enabled("boss_zhipin", False).enabled is False
-    set_site_enabled("boss_zhipin", True)
+    def test_update_and_toggle_site(self):
+        add_site(sample_site_values())
+        updated = update_site("boss_zhipin", {"frequency": "twice_daily", "max_depth": 3})
+        self.assertEqual(updated.frequency, "twice_daily")
+        self.assertEqual(updated.max_depth, 3)
+        self.assertFalse(set_site_enabled("boss_zhipin", False).enabled)
+        self.assertTrue(set_site_enabled("boss_zhipin", True).enabled)
 
-    # --- 网站配置：异常案例 ---
-    try:
-        add_site({"site_id": ""})
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("site_id 为空应报错")
-    try:
-        add_site(sample_site_values())  # 重复 site_id
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("重复 site_id 应报错")
-    try:
-        add_site({"site_id": "x", "crawl_strategy": "bad"})
-    except ValueError as error:
-        assert "crawl_strategy" in str(error)
-    else:
-        raise AssertionError("非法 crawl_strategy 应报错")
-    try:
-        add_site({"site_id": "x", "frequency": "hourly"})
-    except ValueError as error:
-        assert "frequency" in str(error)
-    else:
-        raise AssertionError("非法 frequency 应报错")
-    try:
-        add_site({"site_id": "x", "max_depth": -1})
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("负数 max_depth 应报错")
-    try:
-        get_site("not-exists")
-    except KeyError:
-        pass
-    else:
-        raise AssertionError("未知 site_id 应报 KeyError")
+    def test_add_site_rejects_invalid_values(self):
+        with self.assertRaises(ValueError):
+            add_site({"site_id": ""})
+        add_site(sample_site_values())
+        with self.assertRaises(ValueError):
+            add_site(sample_site_values())  # 重复 site_id
+        with self.assertRaises(ValueError):
+            add_site({"site_id": "x", "crawl_strategy": "bad"})
+        with self.assertRaises(ValueError):
+            add_site({"site_id": "x", "frequency": "hourly"})
+        with self.assertRaises(ValueError):
+            add_site({"site_id": "x", "max_depth": -1})
 
-    # --- 任务：正常案例 ---
-    task = trigger_task("boss_zhipin")
-    assert task.status == "pending"
-    assert task.site_id == "boss_zhipin"
-    assert get_task(task.task_id) is task
-    assert update_task(task.task_id, {"status": "running"}).status == "running"
-    done = update_task(task.task_id, {
-        "status": "success", "raw_count": 100, "parsed_count": 95,
-        "error_count": 5, "finished_at": "2026-09-02T09:30:00",
-    })
-    assert done.status == "success"
-    assert done.raw_count == 100
-    assert done.parsed_count == 95
-    assert done.error_count == 5
-    assert len(list_tasks("boss_zhipin")) == 1
+    def test_get_unknown_site_raises(self):
+        with self.assertRaises(KeyError):
+            get_site("not-exists")
 
-    # --- 任务：异常案例 ---
-    try:
-        trigger_task("not-exists")
-    except KeyError:
-        pass
-    else:
-        raise AssertionError("触发未知网站应报 KeyError")
-    set_site_enabled("boss_zhipin", False)
-    try:
-        trigger_task("boss_zhipin")
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("触发停用网站应报错")
-    set_site_enabled("boss_zhipin", True)
-    try:
-        update_task(task.task_id, {"status": "weird"})
-    except ValueError as error:
-        assert "status" in str(error)
-    else:
-        raise AssertionError("非法 status 应报错")
-    try:
-        get_task("missing")
-    except KeyError:
-        pass
-    else:
-        raise AssertionError("未知 task_id 应报 KeyError")
+    def test_remove_site(self):
+        add_site(sample_site_values())
+        self.assertEqual(remove_site("boss_zhipin").site_id, "boss_zhipin")
+        with self.assertRaises(KeyError):
+            get_site("boss_zhipin")
 
-    # --- compute_next_run 纯计算 ---
-    site = get_site("boss_zhipin")  # frequency=twice_daily, start_at=2026-09-02T09:00:00
-    assert compute_next_run(site, datetime(2026, 9, 2, 10, 0)) == datetime(2026, 9, 2, 21, 0)
-    assert compute_next_run(site, datetime(2026, 9, 2, 22, 0)) == datetime(2026, 9, 3, 9, 0)
+    def test_ensure_default_site(self):
+        default = ensure_default_site()
+        self.assertEqual(default.site_id, "boss_zhipin")
+        self.assertEqual(default.site_name, "BOSS直聘")
+        self.assertIn(default.crawl_strategy, CRAWL_STRATEGIES)
+        self.assertIn(default.frequency, FREQUENCIES)
 
-    daily_site = add_site({
-        "site_id": "daily_site", "site_name": "每日站",
-        "frequency": "daily", "start_at": "2026-09-02T08:30:00",
-    })
-    assert compute_next_run(daily_site, datetime(2026, 9, 2, 8, 0)) == datetime(2026, 9, 2, 8, 30)
-    assert compute_next_run(daily_site, datetime(2026, 9, 2, 9, 0)) == datetime(2026, 9, 3, 8, 30)
 
-    once_site = add_site({
-        "site_id": "once_site", "site_name": "手动站",
-        "frequency": "once", "start_at": "2026-09-02T09:00:00",
-    })
-    assert compute_next_run(once_site, datetime(2026, 9, 2, 8, 0)) is None
+class TaskServiceTest(unittest.TestCase):
+    def setUp(self):
+        reset_sites()
+        reset_tasks()
+        add_site(sample_site_values())
 
-    # --- 删除 ---
-    assert remove_site("once_site").site_id == "once_site"
-    try:
-        get_site("once_site")
-    except KeyError:
-        pass
-    else:
-        raise AssertionError("删除后仍能读到应报 KeyError")
+    def test_trigger_and_update_task(self):
+        task = trigger_task("boss_zhipin")
+        self.assertEqual(task.status, "pending")
+        self.assertEqual(task.site_id, "boss_zhipin")
+        self.assertIs(get_task(task.task_id), task)
+        self.assertEqual(update_task(task.task_id, {"status": "running"}).status, "running")
+        done = update_task(task.task_id, {
+            "status": "success", "raw_count": 100, "parsed_count": 95,
+            "error_count": 5, "finished_at": "2026-09-02T09:30:00",
+        })
+        self.assertEqual(done.status, "success")
+        self.assertEqual(done.raw_count, 100)
+        self.assertEqual(done.parsed_count, 95)
+        self.assertEqual(done.error_count, 5)
+        self.assertEqual(len(list_tasks("boss_zhipin")), 1)
 
-    # --- 默认站点 ---
-    reset_sites()
-    default = ensure_default_site()
-    assert default.site_id == "boss_zhipin"
-    assert default.site_name == "BOSS直聘"
-    assert default.crawl_strategy in CRAWL_STRATEGIES
-    assert default.frequency in FREQUENCIES
-    assert "pending" in TASK_STATUSES
+    def test_trigger_unknown_or_disabled_site(self):
+        with self.assertRaises(KeyError):
+            trigger_task("not-exists")
+        set_site_enabled("boss_zhipin", False)
+        with self.assertRaises(ValueError):
+            trigger_task("boss_zhipin")
 
-    print("site/task service smoke test passed")
+    def test_update_task_validations(self):
+        task = trigger_task("boss_zhipin")
+        with self.assertRaises(ValueError):
+            update_task(task.task_id, {"status": "weird"})
+        with self.assertRaises(KeyError):
+            get_task("missing")
+
+
+class NextRunTest(unittest.TestCase):
+    def setUp(self):
+        reset_sites()
+        reset_tasks()
+
+    def test_twice_daily(self):
+        site = add_site({
+            "site_id": "boss_zhipin", "site_name": "BOSS直聘",
+            "frequency": "twice_daily", "start_at": "2026-09-02T09:00:00",
+        })
+        self.assertEqual(compute_next_run(site, datetime(2026, 9, 2, 10, 0)), datetime(2026, 9, 2, 21, 0))
+        self.assertEqual(compute_next_run(site, datetime(2026, 9, 2, 22, 0)), datetime(2026, 9, 3, 9, 0))
+
+    def test_daily(self):
+        site = add_site({
+            "site_id": "daily_site", "site_name": "每日站",
+            "frequency": "daily", "start_at": "2026-09-02T08:30:00",
+        })
+        self.assertEqual(compute_next_run(site, datetime(2026, 9, 2, 8, 0)), datetime(2026, 9, 2, 8, 30))
+        self.assertEqual(compute_next_run(site, datetime(2026, 9, 2, 9, 0)), datetime(2026, 9, 3, 8, 30))
+
+    def test_once_returns_none(self):
+        site = add_site({
+            "site_id": "once_site", "site_name": "手动站",
+            "frequency": "once", "start_at": "2026-09-02T09:00:00",
+        })
+        self.assertIsNone(compute_next_run(site, datetime(2026, 9, 2, 8, 0)))
 
 
 if __name__ == "__main__":
-    main()
+    unittest.main()

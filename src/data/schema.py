@@ -27,7 +27,6 @@ JOB_COLUMNS = (
     "crawled_at",
 )
 
-# 接口约定第 2 节中“必填=是”的字段。
 REQUIRED_JOB_COLUMNS = (
     "job_id",
     "title",
@@ -39,7 +38,6 @@ REQUIRED_JOB_COLUMNS = (
     "source",
     "crawled_at",
 )
-# 接口约定第 5 节“服务层接口”允许的筛选键。
 FILTER_KEYS = (
     "keyword",
     "city",
@@ -78,21 +76,21 @@ class JobRecord:
     title: str
     skills: str
     company: str = ""
+    company_intro: str = ""
+    company_size: str = ""
+    company_nature: str = ""
+    industry: str = ""
     city: str = ""
     work_type: str = ""
     experience: str = ""
     education: str = ""
     description: str = ""
+    benefits: str = ""
+    salary_text: str = ""
     salary_min: float | None = None
     salary_max: float | None = None
     salary_avg: float | None = None
     source: str = ""
-    company_intro: str = ""
-    company_size: str = ""
-    company_nature: str = ""
-    industry: str = ""
-    benefits: str = ""
-    salary_text: str = ""
     source_url: str = ""
     crawled_at: str = ""
 

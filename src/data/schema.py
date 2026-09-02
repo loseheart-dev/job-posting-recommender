@@ -62,6 +62,19 @@ RECOMMENDATION_COLUMNS = (
     "missing_skills",
     "reason",
 )
+MULTI_FACTOR_RECOMMENDATION_COLUMNS = (
+    "job_id",
+    "title",
+    "company",
+    "company_size",
+    "company_nature",
+    "industry",
+    "salary_range",
+    "match_probability",
+    "matched_skills",
+    "missing_skills",
+    "reason",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,7 +115,8 @@ class JobRecord:
 class StudentProfile:
     """Input contract shared by the recommendation algorithm and page.
 
-    Field names follow《docs/接口约定.md》第 3 节“学生画像”。
+    Fields follow docs/接口约定.md section 3. `experience` is an extra
+    compatibility field for matching the job table's experience column.
     """
 
     target_role: str = ""

@@ -114,6 +114,11 @@ class BossPipelineTests(unittest.TestCase):
         dfs = traverse_tasks(roots, "dfs", visit, max_depth=1)
         self.assertEqual([item.depth for item in bfs], [0, 0, 1])
         self.assertEqual([item.depth for item in dfs], [0, 1, 0])
+        with tempfile.TemporaryDirectory() as directory:
+            traversal_log = Path(directory) / "traversal_records.jsonl"
+            logged = traverse_tasks(roots, "bfs", visit, max_depth=1, record_path=traversal_log)
+            self.assertEqual(len(logged), 3)
+            self.assertEqual(len(traversal_log.read_text(encoding="utf-8").splitlines()), 3)
         failed = traverse_tasks(
             roots[:1],
             "bfs",

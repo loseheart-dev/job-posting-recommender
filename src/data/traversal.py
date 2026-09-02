@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from collections import deque
-from dataclasses import dataclass
+import json
+from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Callable, Iterable
 
 
@@ -38,6 +40,19 @@ class TraversalRecord:
     result_count: int
     error_message: str = ""
 
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
+
+
+def append_traversal_record(record: TraversalRecord, path: str | Path) -> Path:
+    """追加一条遍历记录，不覆盖已有记录。"""
+
+    record_path = Path(path)
+    record_path.parent.mkdir(parents=True, exist_ok=True)
+    with record_path.open("a", encoding="utf-8") as stream:
+        stream.write(json.dumps(record.to_dict(), ensure_ascii=False) + "\n")
+    return record_path
+
 
 def build_search_tasks(
     keywords: Iterable[str], cities: Iterable[str], pages: int = 1
@@ -69,6 +84,7 @@ def traverse_tasks(
     visit: Callable[[CrawlTask], VisitResult],
     *,
     max_depth: int = 0,
+    record_path: str | Path | None = None,
 ) -> list[TraversalRecord]:
     """按 BFS 或 DFS 访问任务，并记录节点、结果数量和错误。"""
 
@@ -85,6 +101,11 @@ def traverse_tasks(
     visited: set[tuple[str, str, int, str]] = set()
     records: list[TraversalRecord] = []
 
+    def save(record: TraversalRecord) -> None:
+        records.append(record)
+        if record_path is not None:
+            append_traversal_record(record, record_path)
+
     while pending:
         task = pending.popleft() if strategy == "bfs" else pending.pop()
         if task.key() in visited:
@@ -94,7 +115,7 @@ def traverse_tasks(
             outcome = visit(task)
             if not isinstance(outcome, VisitResult):
                 raise TypeError("visit 必须返回 VisitResult")
-            records.append(
+            save(
                 TraversalRecord(
                     task_id=task.task_id,
                     keyword=task.keyword,
@@ -111,8 +132,8 @@ def traverse_tasks(
                 pending.extend(children)
             else:
                 pending.extend(reversed(children))
-        except (TypeError, ValueError, OSError) as error:
-            records.append(
+        except (TypeError, ValueError, OSError, RuntimeError) as error:
+            save(
                 TraversalRecord(
                     task_id=task.task_id,
                     keyword=task.keyword,

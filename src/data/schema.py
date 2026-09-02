@@ -110,8 +110,9 @@ class JobRecord:
 class StudentProfile:
     """Input contract shared by the recommendation algorithm and page.
 
-    Fields follow docs/接口约定.md section 3. `experience` is an extra
-    compatibility field for matching the job table's experience column.
+    Fields follow docs/接口约定.md section 3. `experience`（经验状态文本，
+    如"在校生""应届"）与岗位表 experience 列做包含匹配；work_years 与
+    work_experience 写入画像说明，不直接参与岗位经验匹配。
     """
 
     target_role: str = ""

@@ -56,28 +56,42 @@ def main() -> None:
         pass
     else:
         raise AssertionError("work_years 无法转 float 时应报错")
+    try:
+        StudentProfile.from_mapping({"experience": "应届"})
+    except ValueError as error:
+        assert "work_experience" in str(error)
+    else:
+        raise AssertionError("旧字段 experience 应被明确拒绝")
 
     record = JobRecord(job_id="1", title="测试岗位", company="测试公司", skills="Python")
     assert record.to_dict()["skills"] == "Python"
     assert record.to_dict()["company"] == "测试公司"
     assert tuple(record.to_dict()) == JOB_COLUMNS
 
+    # 回归测试：保留原有位置参数语义，第三个位置参数仍是 skills。
+    positional = JobRecord("1", "测试岗位", "Python")
+    assert positional.skills == "Python"
+    assert positional.company == ""
+
     # load_jobs：文件缺失返回空表（仍带全部标准列）；空文件报错；缺必填字段报错。
     assert tuple(load_jobs("data/processed/not-found.csv").columns) == JOB_COLUMNS
     with TemporaryDirectory() as directory:
         csv_path = Path(directory) / "jobs.csv"
         csv_path.write_text(
-            "job_id,title,company,skills,salary_min,salary_max,salary_avg\n"
-            "3,测试岗位,示例公司,Python,1,2,1.5\n",
+            "job_id,title,company,skills,salary_min,salary_max,salary_avg,source,crawled_at\n"
+            "3,测试岗位,示例公司,Python,1,2,1.5,BOSS直聘,2026-09-01T10:00:00+08:00\n",
             encoding="utf-8",
         )
         loaded = load_jobs(csv_path)
         assert tuple(loaded.columns) == JOB_COLUMNS
         assert loaded.iloc[0]["company"] == "示例公司"
+        assert loaded.iloc[0]["source"] == "BOSS直聘"
+        assert loaded.iloc[0]["crawled_at"] == "2026-09-01T10:00:00+08:00"
 
         missing_company_path = Path(directory) / "missing_company.csv"
         missing_company_path.write_text(
-            "job_id,title,skills,salary_min,salary_max,salary_avg\n3,测试岗位,Python,1,2,1.5\n",
+            "job_id,title,skills,salary_min,salary_max,salary_avg,source,crawled_at\n"
+            "3,测试岗位,Python,1,2,1.5,BOSS直聘,2026-09-01T10:00:00+08:00\n",
             encoding="utf-8",
         )
         try:
@@ -86,6 +100,32 @@ def main() -> None:
             assert "company" in str(error)
         else:
             raise AssertionError("缺少必填字段 company 时应报错")
+
+        missing_source_path = Path(directory) / "missing_source.csv"
+        missing_source_path.write_text(
+            "job_id,title,company,skills,salary_min,salary_max,salary_avg,crawled_at\n"
+            "4,测试岗位,示例公司,Python,1,2,1.5,2026-09-01T10:00:00+08:00\n",
+            encoding="utf-8",
+        )
+        try:
+            load_jobs(missing_source_path)
+        except ValueError as error:
+            assert "source" in str(error)
+        else:
+            raise AssertionError("缺少必填字段 source 时应报错")
+
+        missing_crawled_path = Path(directory) / "missing_crawled_at.csv"
+        missing_crawled_path.write_text(
+            "job_id,title,company,skills,salary_min,salary_max,salary_avg,source\n"
+            "5,测试岗位,示例公司,Python,1,2,1.5,BOSS直聘\n",
+            encoding="utf-8",
+        )
+        try:
+            load_jobs(missing_crawled_path)
+        except ValueError as error:
+            assert "crawled_at" in str(error)
+        else:
+            raise AssertionError("缺少必填字段 crawled_at 时应报错")
 
         empty_path = Path(directory) / "empty.csv"
         empty_path.touch()

@@ -28,7 +28,17 @@ JOB_COLUMNS = (
 )
 
 # 接口约定第 2 节中“必填=是”的字段。
-REQUIRED_JOB_COLUMNS = ("job_id", "title", "company", "skills", "salary_min", "salary_max", "salary_avg")
+REQUIRED_JOB_COLUMNS = (
+    "job_id",
+    "title",
+    "company",
+    "skills",
+    "salary_min",
+    "salary_max",
+    "salary_avg",
+    "source",
+    "crawled_at",
+)
 # 接口约定第 5 节“服务层接口”允许的筛选键。
 FILTER_KEYS = (
     "keyword",
@@ -58,27 +68,31 @@ RECOMMENDATION_COLUMNS = (
 
 @dataclass(frozen=True, slots=True)
 class JobRecord:
-    """One canonical row from the cleaned job table (aligned with JOB_COLUMNS)."""
+    """One canonical row from the cleaned job table (aligned with JOB_COLUMNS).
+
+    The first three positional arguments remain job_id/title/skills for backward
+    compatibility; the new columns are appended after the original ones.
+    """
 
     job_id: str
     title: str
+    skills: str
     company: str = ""
-    company_intro: str = ""
-    company_size: str = ""
-    company_nature: str = ""
-    industry: str = ""
     city: str = ""
     work_type: str = ""
     experience: str = ""
     education: str = ""
-    skills: str = ""
     description: str = ""
-    benefits: str = ""
-    salary_text: str = ""
     salary_min: float | None = None
     salary_max: float | None = None
     salary_avg: float | None = None
     source: str = ""
+    company_intro: str = ""
+    company_size: str = ""
+    company_nature: str = ""
+    industry: str = ""
+    benefits: str = ""
+    salary_text: str = ""
     source_url: str = ""
     crawled_at: str = ""
 
@@ -106,6 +120,10 @@ class StudentProfile:
 
     @classmethod
     def from_mapping(cls, values: Mapping[str, object]) -> "StudentProfile":
+        if "experience" in values:
+            raise ValueError(
+                "字段 'experience' 已弃用，请改用 'work_experience'（见 docs/接口约定.md 第 3 节）"
+            )
         raw_skills = values.get("skills", ()) or ()
         if isinstance(raw_skills, str):
             skills = tuple(skill.strip() for skill in raw_skills.split(";") if skill.strip())

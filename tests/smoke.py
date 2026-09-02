@@ -10,18 +10,18 @@ from src.services.job_service import filter_jobs, summarize_jobs
 
 def sample_jobs() -> pd.DataFrame:
     return pd.DataFrame([
-        {
-            "job_id": "1", "title": "数据分析实习生", "company": "示例公司", "city": "上海",
-            "work_type": "实习", "experience": "在校生", "education": "本科",
-            "skills": "Python;SQL;pandas", "description": "处理业务数据", "salary_min": 3000,
-            "salary_max": 5000, "salary_avg": 4000, "source": "test",
-        },
-        {
-            "job_id": "2", "title": "后端开发工程师", "company": "测试公司", "city": "杭州",
-            "work_type": "全职", "experience": "应届", "education": "本科",
-            "skills": "Python;Linux", "description": "开发服务接口", "salary_min": 9000,
-            "salary_max": 12000, "salary_avg": 10500, "source": "test",
-        },
+        JobRecord(
+            "1", "数据分析实习生", "Python;SQL;pandas", company="示例公司", city="上海",
+            work_type="实习", experience="在校生", education="本科", description="处理业务数据",
+            salary_min=3000, salary_max=5000, salary_avg=4000, source="test",
+            crawled_at="2026-01-01T00:00:00Z",
+        ).to_dict(),
+        JobRecord(
+            "2", "后端开发工程师", "Python;Linux", company="测试公司", city="杭州",
+            work_type="全职", experience="应届", education="本科", description="开发服务接口",
+            salary_min=9000, salary_max=12000, salary_avg=10500, source="test",
+            crawled_at="2026-01-01T00:00:00Z",
+        ).to_dict(),
     ])
 
 
@@ -34,7 +34,12 @@ def main() -> None:
     assert tuple(load_jobs("data/processed/not-found.csv").columns) == JOB_COLUMNS
     with TemporaryDirectory() as directory:
         csv_path = Path(directory) / "jobs.csv"
-        csv_path.write_text("job_id,title,skills,salary_min,salary_max,salary_avg\n3,测试岗位,Python,1,2,1.5\n", encoding="utf-8")
+        pd.DataFrame([
+            JobRecord(
+                "3", "测试岗位", "Python", company="测试公司", source="test",
+                crawled_at="2026-01-01T00:00:00Z",
+            ).to_dict()
+        ]).to_csv(csv_path, index=False)
         assert tuple(load_jobs(csv_path).columns) == JOB_COLUMNS
         empty_path = Path(directory) / "empty.csv"
         empty_path.touch()

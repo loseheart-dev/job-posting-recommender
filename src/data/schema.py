@@ -6,20 +6,48 @@ JOB_COLUMNS = (
     "job_id",
     "title",
     "company",
+    "company_intro",
+    "company_size",
+    "company_nature",
+    "industry",
     "city",
     "work_type",
     "experience",
     "education",
     "skills",
     "description",
+    "benefits",
+    "salary_text",
     "salary_min",
     "salary_max",
     "salary_avg",
     "source",
+    "source_url",
+    "crawled_at",
 )
 
-REQUIRED_JOB_COLUMNS = ("job_id", "title", "skills", "salary_min", "salary_max", "salary_avg")
-FILTER_KEYS = ("keyword", "city", "work_type", "experience", "salary_min", "salary_max")
+REQUIRED_JOB_COLUMNS = (
+    "job_id",
+    "title",
+    "company",
+    "skills",
+    "salary_min",
+    "salary_max",
+    "salary_avg",
+    "source",
+    "crawled_at",
+)
+FILTER_KEYS = (
+    "keyword",
+    "city",
+    "work_type",
+    "experience",
+    "education",
+    "industry",
+    "company_nature",
+    "salary_min",
+    "salary_max",
+)
 CLUSTER_OUTPUT_COLUMNS = (*JOB_COLUMNS, "cluster_id")
 SALARY_OUTPUT_COLUMNS = (*JOB_COLUMNS, "predicted_salary")
 SALARY_METRIC_KEYS = ("mae", "r2")
@@ -56,15 +84,23 @@ class JobRecord:
     title: str
     skills: str
     company: str = ""
+    company_intro: str = ""
+    company_size: str = ""
+    company_nature: str = ""
+    industry: str = ""
     city: str = ""
     work_type: str = ""
     experience: str = ""
     education: str = ""
     description: str = ""
+    benefits: str = ""
+    salary_text: str = ""
     salary_min: float | None = None
     salary_max: float | None = None
     salary_avg: float | None = None
     source: str = ""
+    source_url: str = ""
+    crawled_at: str = ""
 
     def to_dict(self) -> dict[str, object]:
         return {column: getattr(self, column) for column in JOB_COLUMNS}

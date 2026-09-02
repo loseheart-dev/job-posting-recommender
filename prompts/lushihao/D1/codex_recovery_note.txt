@@ -1,0 +1,22 @@
+D1 AI Coding 对话记录（补录索引，非原始导出）
+原始日期：2026-09-01
+补录日期：2026-09-02
+
+说明：当前工作区在补录前没有找到 2026-09-01 的 AI Coding 对话文本，当前可访问记录也不能还原完整原文。因此本文件不冒充当天导出的 prompt，只记录可以由 Git 提交核验的工作主题。按课程要求，原始对话应在当天导出并提交；本文件不能替代准时提交的原始记录。
+
+可核验的工作主题：
+1. 搭建项目基础结构，明确五人任务边界。
+2. 冻结岗位数据、学生画像和算法返回的共享接口。
+3. 导入 BOSS 上游结果，增加 BFS/DFS 任务遍历。
+4. 将 BOSS 记录映射到统一岗位数据结构，完成岗位数据清洗和 processed/jobs.csv 导出。
+5. 增加数据字典、清洗记录、测试样例和范围遍历验证。
+
+Git 证据：
+2051a44 chore: initialize project structure
+fb7bcb3 feat: freeze shared project contracts
+15a36d3 feat: import BOSS upstream results
+3939e03 feat: add BFS and DFS crawl traversal
+6d3c767 feat: map BOSS records to job schema
+bdf8df3 feat: clean and export BOSS jobs
+423afe4 test: verify BOSS import and cleaning pipeline
+df8ceb8 docs: record range crawl validation

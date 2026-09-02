@@ -98,10 +98,10 @@ def experience_years(value: object) -> float:
     text = str(value)
     if "经验不限" in text or "在校生" in text or "应届" in text:
         return 0.0
-    if "10年" in text:
-        return 12.0
     if "5-10" in text or "5~10" in text:
         return 7.5
+    if "10年" in text:
+        return 12.0
     if "3-5" in text or "3~5" in text:
         return 4.0
     if "1-3" in text or "1~3" in text:
@@ -160,8 +160,11 @@ def encode_job_features(
             lambda raw: 1.0 if skill in split_skills(raw) else 0.0
         )
 
-    features["education_level"] = jobs["education"].map(education_level).astype(float)
-    features["experience_years"] = jobs["experience"].map(experience_years).astype(float)
+    empty_text = pd.Series("", index=jobs.index, dtype="object")
+    education = jobs["education"] if "education" in jobs.columns else empty_text
+    experience = jobs["experience"] if "experience" in jobs.columns else empty_text
+    features["education_level"] = education.map(education_level).astype(float)
+    features["experience_years"] = experience.map(experience_years).astype(float)
     if "company_size" in jobs.columns:
         features["company_size_level"] = (
             jobs["company_size"].map(company_size_level).astype(float)

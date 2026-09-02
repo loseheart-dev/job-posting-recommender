@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from src.algorithms._common import validate_jobs
+from src.algorithms._common import experience_years, validate_jobs
 from src.algorithms.clustering import cluster_jobs
 from src.algorithms.company_profile import build_company_profiles
 from src.algorithms.salary import analyze_salary_factors, predict_salary
@@ -59,7 +59,7 @@ def expect_error(name: str, func: object, *args: object, keyword: str) -> None:
 
 
 def test_normal() -> None:
-    print("[1/5] 正常数据案例")
+    print("[1/6] 正常数据案例")
     jobs = build_sample_frame()
 
     factors = analyze_salary_factors(jobs)
@@ -93,7 +93,7 @@ def test_normal() -> None:
 
 
 def test_empty() -> None:
-    print("[2/5] 空数据案例")
+    print("[2/6] 空数据案例")
     empty = pd.DataFrame(columns=JOB_COLUMNS)
     expect_error("空数据-因素分析", analyze_salary_factors, empty, keyword="为空")
     expect_error("空数据-能力图谱", build_skill_graph, empty, keyword="为空")
@@ -103,7 +103,7 @@ def test_empty() -> None:
 
 
 def test_missing_columns() -> None:
-    print("[3/5] 缺字段案例")
+    print("[3/6] 缺字段案例")
     jobs = build_sample_frame()
     missing = jobs.drop(columns=["skills"])
     expect_error("缺 skills 字段-因素分析", analyze_salary_factors, missing, keyword="skills")
@@ -116,7 +116,7 @@ def test_missing_columns() -> None:
 
 
 def test_insufficient_samples() -> None:
-    print("[4/5] 样本不足 / 薪资缺失案例")
+    print("[4/6] 样本不足 / 薪资缺失案例")
     small = build_sample_frame().head(4)
     expect_error("样本不足-KMeans(4条分3类)", cluster_jobs, small, 3, keyword="样本不足")
     expect_error("样本不足-薪资预测(4条)", predict_salary, small, keyword="薪资有效样本过少")
@@ -129,9 +129,10 @@ def test_insufficient_samples() -> None:
 
 
 def test_optional_columns_degradation() -> None:
-    print("[5/5] 可选字段缺失降级案例（仅 JOB_COLUMNS）")
+    print("[5/6] 可选字段缺失降级案例（仅 JOB_COLUMNS）")
     full = build_sample_frame()
     core = full.loc[:, list(JOB_COLUMNS)]
+    core[["company_size", "company_nature", "industry"]] = ""
     validate_jobs(core)
     factors = analyze_salary_factors(core)
     check("仅核心字段-因素分析可运行且非空", not factors.empty)
@@ -147,6 +148,18 @@ def test_optional_columns_degradation() -> None:
     check("仅核心字段-企业画像可运行", not profiles.empty)
     check("仅核心字段-企业画像可选字段为空", (profiles["company_size"] == "").all())
 
+    minimal = full.loc[:, ["job_id", "title", "skills", "salary_avg"]]
+    clustered_minimal, _ = cluster_jobs(minimal, n_clusters=3)
+    check("仅必需字段-KMeans可运行", "cluster_id" in clustered_minimal.columns)
+    predicted_minimal, _ = predict_salary(minimal)
+    check("仅必需字段-薪资预测可运行", "predicted_salary" in predicted_minimal.columns)
+
+
+def test_experience_mapping() -> None:
+    print("[6/6] 经验区间映射案例")
+    check("5-10年取区间中点", experience_years("5-10年") == 7.5)
+    check("10年以上取保守估计", experience_years("10年以上") == 12.0)
+
 
 def main() -> None:
     print("郑维豪算法模块验收测试\n")
@@ -155,6 +168,7 @@ def main() -> None:
     test_missing_columns()
     test_insufficient_samples()
     test_optional_columns_degradation()
+    test_experience_mapping()
     print(f"\n结果: {PASS} 通过, {FAIL} 失败")
     if FAIL:
         raise SystemExit(1)

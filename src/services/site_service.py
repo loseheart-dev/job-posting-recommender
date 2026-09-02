@@ -34,10 +34,16 @@ class SiteConfig:
         site_id = str(raw.get("site_id", "") or "").strip()
         if not site_id:
             raise ValueError("site_id 不能为空")
+        site_name = str(raw.get("site_name", "") or "").strip()
+        if not site_name:
+            raise ValueError("site_name 不能为空")
+        base_url = str(raw.get("base_url", "") or "").strip()
+        if not base_url:
+            raise ValueError("base_url 不能为空")
         config = cls(
             site_id=site_id,
-            site_name=str(raw.get("site_name", "") or ""),
-            base_url=str(raw.get("base_url", "") or ""),
+            site_name=site_name,
+            base_url=base_url,
             enabled=_as_bool(raw.get("enabled"), default=True),
             keywords=_as_string_tuple(raw.get("keywords")),
             cities=_as_string_tuple(raw.get("cities")),
@@ -136,5 +142,9 @@ def remove_site(site_id: str) -> SiteConfig:
 def ensure_default_site() -> SiteConfig:
     """按接口约定首期配置补齐 BOSS 直聘默认站点。"""
     if DEFAULT_SITE_ID not in _SITES:
-        _SITES[DEFAULT_SITE_ID] = SiteConfig(site_id=DEFAULT_SITE_ID, site_name=DEFAULT_SITE_NAME)
+        _SITES[DEFAULT_SITE_ID] = SiteConfig(
+            site_id=DEFAULT_SITE_ID,
+            site_name=DEFAULT_SITE_NAME,
+            base_url="https://www.zhipin.com",
+        )
     return _SITES[DEFAULT_SITE_ID]

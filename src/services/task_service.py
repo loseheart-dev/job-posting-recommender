@@ -12,6 +12,9 @@ from typing import Mapping
 from src.services.site_service import SiteConfig, get_site
 
 TASK_STATUSES = ("pending", "running", "success", "failed")
+TASK_UPDATE_FIELDS = frozenset(
+    {"started_at", "finished_at", "status", "raw_count", "parsed_count", "error_count", "error_message"}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,6 +78,9 @@ def update_task(task_id: str, changes: Mapping[str, object]) -> CollectionTask:
     """更新任务状态/计数/错误信息，校验 status 取值。"""
     if task_id not in _TASKS:
         raise KeyError(f"任务不存在: {task_id}")
+    unknown = set(changes) - TASK_UPDATE_FIELDS
+    if unknown:
+        raise ValueError(f"任务不可更新字段: {', '.join(sorted(unknown))}")
     current = _TASKS[task_id]
     data = {**current.to_dict(), **dict(changes), "task_id": task_id}
     status = str(data.get("status", "pending") or "pending")
@@ -98,7 +104,13 @@ def update_task(task_id: str, changes: Mapping[str, object]) -> CollectionTask:
 def _as_int(value: object) -> int:
     if value in (None, ""):
         return 0
-    return int(value)
+    try:
+        result = int(value)
+    except (TypeError, ValueError) as error:
+        raise ValueError(f"任务计数必须是整数，实际为: {value!r}") from error
+    if result < 0:
+        raise ValueError("任务计数不能为负数")
+    return result
 
 
 def _now_iso() -> str:

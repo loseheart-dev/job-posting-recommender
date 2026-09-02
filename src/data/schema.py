@@ -115,13 +115,10 @@ class StudentProfile:
     work_experience: str = ""
     expected_salary_min: float | None = None
     expected_salary_max: float | None = None
+    experience: str = ""
 
     @classmethod
     def from_mapping(cls, values: Mapping[str, object]) -> "StudentProfile":
-        if "experience" in values:
-            raise ValueError(
-                "字段 'experience' 已弃用，请改用 'work_experience'（见 docs/接口约定.md 第 3 节）"
-            )
         raw_skills = values.get("skills", ()) or ()
         if isinstance(raw_skills, str):
             skills = tuple(skill.strip() for skill in raw_skills.split(";") if skill.strip())
@@ -147,4 +144,5 @@ class StudentProfile:
             work_experience=str(values.get("work_experience", "") or ""),
             expected_salary_min=optional_float(values.get("expected_salary_min")),
             expected_salary_max=optional_float(values.get("expected_salary_max")),
+            experience=str(values.get("experience", "") or ""),
         )

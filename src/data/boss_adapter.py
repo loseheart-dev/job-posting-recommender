@@ -235,6 +235,8 @@ def _tag_fields(value: Any) -> tuple[str, str, str]:
 
 
 def _record_id(record: dict[str, Any]) -> str:
+    """优先使用上游 job_id，缺失时回退到详情链接使用的公开标识。"""
+
     return _text(record.get("job_id") or record.get("encrypt_job_id") or record.get("encryptJobId"))
 
 

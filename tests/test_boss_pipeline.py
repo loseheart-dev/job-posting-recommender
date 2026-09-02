@@ -45,9 +45,11 @@ class BossPipelineTests(unittest.TestCase):
                 records, details, crawled_at="2026-01-01T00:00:00Z"
             )
             self.assertEqual(tuple(mapped[0]), JOB_COLUMNS)
+            self.assertEqual(mapped[0]["job_id"], "b61d9ca3dcd4ffde")
             self.assertEqual(mapped[0]["city"], "上海")
             self.assertEqual(mapped[0]["skills"], "Python;SQL;pandas")
             self.assertEqual(mapped[0]["salary_avg"], 18000)
+            self.assertIn("3c3cddc8b3b3f20b0nJ92dq0GFVX", mapped[0]["source_url"])
             self.assertIn("数据整理", mapped[0]["description"])
             cleaned, report = clean_jobs_with_report(pd.DataFrame(mapped))
             self.assertEqual(report["output_count"], 4)

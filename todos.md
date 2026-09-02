@@ -1,6 +1,6 @@
 # TODOs — 项目需求与待办清单（每日按实际完成情况更新）
 
-> 课程记录目录按组长规范（AGENTS.md）：`daily/dingweizhe/`、`prompts/dingweizhe/D#/`
+> 课程记录目录按组长规范（学号替代拼音）：`daily/25051415/`、`prompts/25051415/D#/`（本人学号 25051415）
 
 ## 项目基础需求（对应立项要求，负责人见括号）
 
@@ -19,12 +19,12 @@
 - [x] T3 多因素扩展：学历/专业/学校/工作年限/工作经历/薪资区间（StudentProfile 已在本分支补全字段）
 - [x] T4 输出待遇区间、适配公司、匹配概率、推荐理由
 - [x] T5 异常案例：空岗位表、缺失字段、无结果、技能为空画像（13 个测试全过）
-- [ ] T6 个人验收记录：调用方式、输出样例、已知限制（随 PR 描述提交）
-- [ ] T7 发起 PR（标题说明改动 + 验证结果），提交卢世豪审核；审核意见在个人分支修复后再推 PR 更新（组长约定：出现问题在自己分支改，改完提 PR 由他审核）
+- [x] T6 个人验收记录：调用方式、输出样例、已知限制（随 PR #4 描述提交）
+- [x] T7 发起 PR #4 并合并进 main（2026-09-02 组长 APPROVED 后合并）；两轮 review 意见已在个人分支修复并复审通过
 
 ## 待确认 / 风险（按 AGENTS.md 不自行猜测）
 
-- [ ] 接口差异：`src/data/schema.py` 的 StudentProfile 缺少《接口约定.md》规定的 education/major/school/work_years/work_experience 字段（且多出 experience）→ 需卢世豪审核
+- [x] 接口差异：StudentProfile 已补全 education/major/school/work_years/work_experience，experience 兼容字段已写入《接口约定.md》第 3 节（两轮 review 后组长批准）
 - [ ] 课程提交目标：课程说明写的是 gitee 仓库，本组实际使用 GitHub 仓库 → 确认课程扫描系统覆盖 GitHub
 - [ ] git 用户名：当前 `user.name=candleice`，需与报名时填写的一致（不一致会算到别人头上）
 - [ ] README 需改为 ≤800 字立项简写版（现有为技术说明，负责人待组长指定，丁伟哲不擅改）

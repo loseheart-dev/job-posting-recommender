@@ -6,4 +6,5 @@
 
 - `boss_sample.json`：4 条列表结果；
 - `boss_details_sample.json`：4 条详情结果；
+- `jobs_range_sample.csv`：从本次 113 条清洗结果中固定的 32 条标准岗位样例，覆盖上海和杭州；
 - 原始完整采集结果仍保存在本机专用目录，不提交到仓库。

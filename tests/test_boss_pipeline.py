@@ -12,6 +12,7 @@ from src.data.boss_adapter import (
     parse_salary,
 )
 from src.data.cleaner import clean_jobs_with_report, write_clean_jobs
+from src.data.loader import load_jobs
 from src.data.schema import JOB_COLUMNS
 from src.data.traversal import CrawlTask, VisitResult, build_search_tasks, traverse_tasks
 
@@ -33,6 +34,14 @@ def upstream_job(job_id: str = "job-1") -> dict[str, object]:
 
 
 class BossPipelineTests(unittest.TestCase):
+    def test_range_fixture_contract(self) -> None:
+        fixture_path = Path(__file__).parent / "fixtures" / "jobs_range_sample.csv"
+        jobs = load_jobs(fixture_path)
+        self.assertEqual(len(jobs), 32)
+        self.assertEqual(tuple(jobs.columns), JOB_COLUMNS)
+        self.assertEqual(set(jobs["city"].dropna()), {"上海", "杭州"})
+        self.assertEqual(jobs["job_id"].nunique(), 32)
+
     def test_json_csv_import_and_mapping(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

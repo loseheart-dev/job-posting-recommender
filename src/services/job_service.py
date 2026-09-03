@@ -82,7 +82,7 @@ def salary_distribution(jobs: pd.DataFrame, step: float = 5000.0) -> list[dict[s
     counts, _ = np.histogram(values, bins=edges)
     return [
         {
-            "range": f"{e0:g}-{e1:g}",
+            "range": f"{e0:.15g}-{e1:.15g}",
             "min": int(e0) if float(e0).is_integer() else e0,
             "max": int(e1) if float(e1).is_integer() else e1,
             "count": int(counts[i]),

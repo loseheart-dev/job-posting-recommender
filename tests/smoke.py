@@ -77,6 +77,12 @@ def main() -> None:
         {"range": "0-5000", "min": 0, "max": 5000, "count": 1},
         {"range": "5000-10000", "min": 5000, "max": 10000, "count": 1},
     ]
+    precision_jobs = pd.DataFrame([
+        JobRecord("c", "精度岗", "Python", salary_avg=100000).to_dict(),
+    ])
+    assert salary_distribution(precision_jobs, step=0.5) == [
+        {"range": "100000-100000.5", "min": 100000, "max": 100000.5, "count": 1},
+    ]
     # 非整数（含小数）步长不崩溃，且桶内计数总和等于有效薪资数
     assert sum(bucket["count"] for bucket in salary_distribution(jobs, step=500.5)) == 2
     assert sum(bucket["count"] for bucket in salary_distribution(jobs, step=0.5)) == 2

@@ -5,7 +5,7 @@ import pandas as pd
 
 from src.data.schema import JOB_COLUMNS, JobRecord, StudentProfile
 from src.data.loader import load_jobs
-from src.services.job_service import filter_jobs, summarize_jobs
+from src.services.job_service import filter_jobs, salary_distribution, summarize_jobs
 
 
 def sample_jobs() -> pd.DataFrame:
@@ -61,6 +61,47 @@ def main() -> None:
     summary = summarize_jobs(jobs)
     assert summary["job_count"] == 2
     assert summary["top_skills"][0] == ("Python", 2)
+    # salary_distribution：按 salary_avg 分桶（4000、10500，step 默认 5000）
+    distribution = salary_distribution(jobs)
+    assert distribution == [
+        {"range": "0-5000", "min": 0, "max": 5000, "count": 1},
+        {"range": "5000-10000", "min": 5000, "max": 10000, "count": 0},
+        {"range": "10000-15000", "min": 10000, "max": 15000, "count": 1},
+    ]
+    # 恰好命中桶上界（左闭右开）：salary_avg=[0,5000]、step=5000 → 0 与 5000 分属两桶
+    boundary_jobs = pd.DataFrame([
+        JobRecord("a", "边界岗A", "Python", salary_avg=0).to_dict(),
+        JobRecord("b", "边界岗B", "Python", salary_avg=5000).to_dict(),
+    ])
+    assert salary_distribution(boundary_jobs, step=5000) == [
+        {"range": "0-5000", "min": 0, "max": 5000, "count": 1},
+        {"range": "5000-10000", "min": 5000, "max": 10000, "count": 1},
+    ]
+    precision_jobs = pd.DataFrame([
+        JobRecord("c", "精度岗", "Python", salary_avg=100000).to_dict(),
+    ])
+    assert salary_distribution(precision_jobs, step=0.5) == [
+        {"range": "100000-100000.5", "min": 100000, "max": 100000.5, "count": 1},
+    ]
+    # 非整数（含小数）步长不崩溃，且桶内计数总和等于有效薪资数
+    assert sum(bucket["count"] for bucket in salary_distribution(jobs, step=500.5)) == 2
+    assert sum(bucket["count"] for bucket in salary_distribution(jobs, step=0.5)) == 2
+    empty_jobs = pd.DataFrame(columns=JOB_COLUMNS)
+    assert salary_distribution(empty_jobs) == []
+    # 空数据 + 非法 step 也应抛 ValueError（校验顺序与数据是否为空无关）
+    for bad_step in (0, -1):
+        try:
+            salary_distribution(empty_jobs, step=bad_step)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"空数据 + step={bad_step} 应报错")
+    try:
+        salary_distribution(jobs, step=0)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("step<=0 时应报错")
     print("service contract smoke test passed")
 
 

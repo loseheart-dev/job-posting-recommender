@@ -21,4 +21,4 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-立项、调研和项目材料见 [`docs/25051408/`](docs/25051408/)，接口与采集说明见 [`docs/接口约定.md`](docs/接口约定.md)。
+立项、调研和项目材料见 [`docs/25051408/`](docs/25051408/)，团队分工见 [`docs/团队/`](docs/团队/)，成员报告见 [`docs/成员报告/`](docs/成员报告/)，接口与采集说明见 [`docs/接口约定.md`](docs/接口约定.md)。

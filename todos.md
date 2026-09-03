@@ -33,14 +33,14 @@
 
 ## 郑维豪任务（25051413）
 
-- [x] Z1 独立测试数据：符合《接口约定》的 30 行岗位表（含薪资缺失/样本不足场景），tests/sample_data.py + sample_jobs.csv
-- [x] Z2 固定三类分析输入字段、统计口径与输出结构（schema.py 新增 SALARY_FACTOR_COLUMNS / SKILL_GRAPH_KEYS / COMPANY_PROFILE_COLUMNS）
-- [x] Z3 薪资影响因素分析 analyze_salary_factors：输出 factor / impact_direction / importance / description
-- [x] Z4 岗位能力需求图谱 build_skill_graph：输出 nodes / edges / skill_frequency
-- [x] Z5 招聘企业画像 build_company_profiles：输出 company / company_size / company_nature / industry / salary_summary / skill_summary
-- [x] Z6 KMeans 岗位聚类 cluster_jobs：特征标准化 + 群组标签 + 每组可读说明（n_clusters≥2，样本≥2×n_clusters）
-- [x] Z7 随机森林薪资预测 predict_salary：独立训练/测试划分，输出 predicted_salary + MAE/R²（样例 MAE=3416.67, R²=0.7635）
-- [x] Z8 异常案例（空数据/缺字段/样本不足/薪资缺失）+ 个人验收记录 + 算法调用样例；44 项自动化测试全通过，冒烟测试通过
+- [x] ZW1 独立测试数据：符合《接口约定》的 30 行岗位表（含薪资缺失/样本不足场景），tests/sample_data.py + sample_jobs.csv
+- [x] ZW2 固定三类分析输入字段、统计口径与输出结构（schema.py 新增 SALARY_FACTOR_COLUMNS / SKILL_GRAPH_KEYS / COMPANY_PROFILE_COLUMNS）
+- [x] ZW3 薪资影响因素分析 analyze_salary_factors：输出 factor / impact_direction / importance / description
+- [x] ZW4 岗位能力需求图谱 build_skill_graph：输出 nodes / edges / skill_frequency
+- [x] ZW5 招聘企业画像 build_company_profiles：输出 company / company_size / company_nature / industry / salary_summary / skill_summary
+- [x] ZW6 KMeans 岗位聚类 cluster_jobs：特征标准化 + 群组标签 + 每组可读说明（n_clusters≥2，样本≥2×n_clusters）
+- [x] ZW7 随机森林薪资预测 predict_salary：独立训练/测试划分，输出 predicted_salary + MAE/R²（样例 MAE=3416.67, R²=0.7635）
+- [x] ZW8 异常案例（空数据/缺字段/样本不足/薪资缺失）+ 个人验收记录 + 算法调用样例；44 项自动化测试全通过，冒烟测试通过
 
 ## 丁伟哲任务（25051415）
 

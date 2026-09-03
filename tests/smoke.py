@@ -5,7 +5,7 @@ import pandas as pd
 
 from src.data.schema import JOB_COLUMNS, JobRecord, StudentProfile
 from src.data.loader import load_jobs
-from src.services.job_service import filter_jobs, summarize_jobs
+from src.services.job_service import filter_jobs, salary_distribution, summarize_jobs
 
 
 def sample_jobs() -> pd.DataFrame:
@@ -61,6 +61,21 @@ def main() -> None:
     summary = summarize_jobs(jobs)
     assert summary["job_count"] == 2
     assert summary["top_skills"][0] == ("Python", 2)
+    # salary_distribution：按 salary_avg 分桶（4000、10500，step 默认 5000）
+    distribution = salary_distribution(jobs)
+    assert distribution == [
+        {"range": "0-5000", "min": 0, "max": 5000, "count": 1},
+        {"range": "5000-10000", "min": 5000, "max": 10000, "count": 0},
+        {"range": "10000-15000", "min": 10000, "max": 15000, "count": 1},
+    ]
+    empty_jobs = pd.DataFrame(columns=JOB_COLUMNS)
+    assert salary_distribution(empty_jobs) == []
+    try:
+        salary_distribution(jobs, step=0)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("step<=0 时应报错")
     print("service contract smoke test passed")
 
 

@@ -23,7 +23,7 @@
 
 ## 徐挚凌任务（25051430）
 
-- [x] Z1 共享接口对齐：岗位表 21 列、筛选键 9 项、StudentProfile 10 字段（含 experience 兼容）、JobRecord 位置参数、必填 source/crawled_at
+- [x] Z1 共享接口对齐：岗位表 21 列、筛选键 9 项、StudentProfile 11 字段（含 experience 兼容）、JobRecord 位置参数、必填 source/crawled_at
 - [x] Z2 网站配置服务 `site_service.py`：增删改查、启停、频率校验，site_name/base_url 必填
 - [x] Z3 采集任务调度服务 `task_service.py`：手动触发、状态/记录查询、不可更新字段与负计数校验、下次计划时间纯计算
 - [x] Z4 服务层测试 `test_site_task.py` 改写为 unittest，`unittest discover` 可自动发现

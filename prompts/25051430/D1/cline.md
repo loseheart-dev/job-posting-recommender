@@ -7,14 +7,14 @@
 我先阅读《docs/接口约定.md》与 `src/data/schema.py`，发现二者字段不一致，请 Cline 帮助核对并列出差异，再由我确认对齐方案。
 
 提示词：
-「请核对《docs/接口约定.md》与 src/data/schema.py：岗位表应为 21 列、筛选键应为 9 个、StudentProfile 应为 10 个字段。请列出当前 schema.py 与约定的差异，并说明需要补齐哪些字段，先不要直接改代码。」
+「请核对《docs/接口约定.md》与 src/data/schema.py：岗位表应为 21 列、筛选键应为 9 个、StudentProfile 应为 11 个字段（含 experience 兼容字段）。请列出当前 schema.py 与约定的差异，并说明需要补齐哪些字段，先不要直接改代码。」
 
 ## 2. 对齐共享接口
 
 确认差异后，我要求 Cline 按接口约定补齐字段常量与数据类，并强调保持 JobRecord 位置参数兼容。
 
 提示词：
-「按接口约定把 JOB_COLUMNS 补齐到 21 列、FILTER_KEYS 补齐到 9 个、StudentProfile 补齐到 10 个字段，并更新 JobRecord。注意保持 JobRecord 的第 3 个位置参数是 skills，新增字段放在末尾，避免破坏旧的位置参数调用。同步更新 job_service.py 的筛选逻辑和 tests/smoke.py 的样例。」
+「按接口约定把 JOB_COLUMNS 补齐到 21 列、FILTER_KEYS 补齐到 9 个、StudentProfile 补齐到 11 个字段（含 experience 兼容字段），并更新 JobRecord。注意保持 JobRecord 的第 3 个位置参数是 skills，新增字段放在末尾，避免破坏旧的位置参数调用。同步更新 job_service.py 的筛选逻辑和 tests/smoke.py 的样例。」
 
 ## 3. 补充回归测试
 

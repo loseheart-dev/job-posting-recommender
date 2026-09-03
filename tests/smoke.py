@@ -68,6 +68,15 @@ def main() -> None:
         {"range": "5000-10000", "min": 5000, "max": 10000, "count": 0},
         {"range": "10000-15000", "min": 10000, "max": 15000, "count": 1},
     ]
+    # 恰好命中桶上界（左闭右开）：salary_avg=[0,5000]、step=5000 → 0 与 5000 分属两桶
+    boundary_jobs = pd.DataFrame([
+        JobRecord("a", "边界岗A", "Python", salary_avg=0).to_dict(),
+        JobRecord("b", "边界岗B", "Python", salary_avg=5000).to_dict(),
+    ])
+    assert salary_distribution(boundary_jobs, step=5000) == [
+        {"range": "0-5000", "min": 0, "max": 5000, "count": 1},
+        {"range": "5000-10000", "min": 5000, "max": 10000, "count": 1},
+    ]
     # 非整数（含小数）步长不崩溃，且桶内计数总和等于有效薪资数
     assert sum(bucket["count"] for bucket in salary_distribution(jobs, step=500.5)) == 2
     assert sum(bucket["count"] for bucket in salary_distribution(jobs, step=0.5)) == 2

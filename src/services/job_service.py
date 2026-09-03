@@ -73,8 +73,11 @@ def salary_distribution(jobs: pd.DataFrame, step: float = 5000.0) -> list[dict[s
         return []
     values = salaries.to_numpy(dtype=float)
     low = math.floor(float(values.min()) / step) * step
-    high = math.ceil(float(values.max()) / step) * step
-    num_bins = max(1, int(round((high - low) / step)))
+    # 桶为左闭右开：[e_i, e_{i+1})；末边必须严格大于最大值，
+    # 使恰好落在 step 整数倍边界（如 5000）的薪资归入下一个桶，
+    # 而不是因 numpy.histogram 末桶右闭而被多算进前一个桶。
+    span = (float(values.max()) - low) / step
+    num_bins = int(round(span, 10)) + 1
     edges = [round(low + i * step, 6) for i in range(num_bins + 1)]
     counts, _ = np.histogram(values, bins=edges)
     return [

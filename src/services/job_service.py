@@ -58,30 +58,31 @@ def summarize_jobs(jobs: pd.DataFrame) -> dict[str, object]:
 def salary_distribution(jobs: pd.DataFrame, step: float = 5000.0) -> list[dict[str, object]]:
     """按 ``salary_avg`` 生成薪资分桶分布，供页面绘图。
 
-    - ``step``：分桶宽度（元/月），默认 5000；
+    - ``step``：分桶宽度（元/月），默认 5000，支持正数（含小数）步长；
+    - ``step`` 非正数时始终抛出 ValueError（与数据是否为空无关）；
     - 空数据或没有有效薪资时返回空列表（统一空结果状态）；
     - 返回 ``[{"range": "0-5000", "min": 0, "max": 5000, "count": 1}, ...]``，
       每个桶覆盖左闭右开区间，分桶宽度为 ``step``。
     """
+    step = float(step)
+    if step <= 0:
+        raise ValueError(f"step 必须为正数，实际为: {step!r}")
     result = _canonical_jobs(jobs)
     salaries = pd.to_numeric(result["salary_avg"], errors="coerce").dropna()
     if salaries.empty:
         return []
-    step = float(step)
-    if step <= 0:
-        raise ValueError(f"step 必须为正数，实际为: {step!r}")
-    low = math.floor(float(salaries.min()) / step) * step
-    high = math.ceil(float(salaries.max()) / step) * step
-    edges = list(range(int(low), int(high) + int(step), int(step)))
-    if len(edges) < 2:
-        edges = [int(low), int(low) + int(step)]
-    counts, _ = np.histogram(salaries.to_numpy(dtype=float), bins=edges)
+    values = salaries.to_numpy(dtype=float)
+    low = math.floor(float(values.min()) / step) * step
+    high = math.ceil(float(values.max()) / step) * step
+    num_bins = max(1, int(round((high - low) / step)))
+    edges = [round(low + i * step, 6) for i in range(num_bins + 1)]
+    counts, _ = np.histogram(values, bins=edges)
     return [
         {
-            "range": f"{edges[i]}-{edges[i + 1]}",
-            "min": edges[i],
-            "max": edges[i + 1],
+            "range": f"{e0:g}-{e1:g}",
+            "min": int(e0) if float(e0).is_integer() else e0,
+            "max": int(e1) if float(e1).is_integer() else e1,
             "count": int(counts[i]),
         }
-        for i in range(len(edges) - 1)
+        for i, (e0, e1) in enumerate(zip(edges, edges[1:]))
     ]

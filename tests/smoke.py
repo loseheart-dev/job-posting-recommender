@@ -68,8 +68,19 @@ def main() -> None:
         {"range": "5000-10000", "min": 5000, "max": 10000, "count": 0},
         {"range": "10000-15000", "min": 10000, "max": 15000, "count": 1},
     ]
+    # 非整数（含小数）步长不崩溃，且桶内计数总和等于有效薪资数
+    assert sum(bucket["count"] for bucket in salary_distribution(jobs, step=500.5)) == 2
+    assert sum(bucket["count"] for bucket in salary_distribution(jobs, step=0.5)) == 2
     empty_jobs = pd.DataFrame(columns=JOB_COLUMNS)
     assert salary_distribution(empty_jobs) == []
+    # 空数据 + 非法 step 也应抛 ValueError（校验顺序与数据是否为空无关）
+    for bad_step in (0, -1):
+        try:
+            salary_distribution(empty_jobs, step=bad_step)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"空数据 + step={bad_step} 应报错")
     try:
         salary_distribution(jobs, step=0)
     except ValueError:

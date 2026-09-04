@@ -196,11 +196,16 @@ def test_algorithm_fallbacks() -> None:
     flags = flag_abnormal_salary(jobs)
     check("时薪未折算被标记为异常", bool(flags.iloc[0]))
     check("正常薪资不标记", not flags.drop(0).any())
-    # 高值异常：“元/时”误标折算成 86 万/月
+    # 高薪不能仅按金额判定异常，单位冲突应由清洗层根据 salary_text 处理
     jobs.loc[2, "salary_avg"] = 861300.0
     flags2 = flag_abnormal_salary(jobs)
-    check("元/时误标折算成高值被标记", bool(flags2.iloc[2]))
-    check("高值剔除不影响正常行", not flags2.drop([0, 2]).any())
+    check("高薪不因金额阈值被标记", not flags2.iloc[2])
+    check("高薪不影响正常行", not flags2.drop(0).any())
+    from src.data.boss_adapter import parse_salary
+    check(
+        "明确高月薪解析为月薪",
+        parse_salary("100-200K·15薪") == (100000.0, 200000.0, 150000.0),
+    )
     # 2) 薪资预测返回 salary_abnormal 标记列
     predicted, metrics = predict_salary(jobs)
     check("预测返回 salary_abnormal 列", "salary_abnormal" in predicted.columns)

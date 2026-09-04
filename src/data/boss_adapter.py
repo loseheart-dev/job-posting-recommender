@@ -217,16 +217,31 @@ def normalize_delimited(value: Any) -> str:
     return ";".join(seen)
 
 
-def parse_salary(text: Any) -> tuple[float | None, float | None, float | None]:
-    """解析 BOSS 月薪或日薪文本，结果统一为人民币元/月。"""
+_NON_SKILL_RE = re.compile(r"经验$|专业$|外包|居家办公")
 
-    salary_text = _text(text).replace(" ", "")
+
+def normalize_skills(value: Any) -> str:
+    """统一技能分隔符，并去除明显的岗位要求或办公条件文本。"""
+
+    return ";".join(
+        part for part in _split_values(value) if not _NON_SKILL_RE.search(part)
+    )
+
+
+def parse_salary(text: Any) -> tuple[float | None, float | None, float | None]:
+    """解析 BOSS 月薪、日薪、时薪或周薪文本，结果统一为人民币元/月。"""
+
+    salary_text = re.sub(r"\s+", "", _text(text))
     numbers = [float(item) for item in re.findall(r"\d+(?:\.\d+)?", salary_text)]
     if not numbers:
         return None, None, None
     values = numbers[:2]
     if "元/天" in salary_text or "元/日" in salary_text:
         values = [value * 21.75 for value in values]
+    elif "元/时" in salary_text or "元/小时" in salary_text:
+        values = [value * 8 * 21.75 for value in values]
+    elif "元/周" in salary_text:
+        values = [value * 52 / 12 for value in values]
     elif "万" in salary_text and not re.search(r"[Kk千]", salary_text):
         values = [value * 10000 for value in values]
     elif re.search(r"[Kk千]", salary_text):
@@ -301,7 +316,7 @@ def map_boss_records(
                 "work_type": work_type,
                 "experience": experience,
                 "education": education,
-                "skills": normalize_delimited(raw.get("skills") or detail.get("skill_tags")),
+                "skills": normalize_skills(raw.get("skills") or detail.get("skill_tags")),
                 "description": _text(raw.get("description") or detail.get("jd")),
                 "benefits": normalize_delimited(raw.get("welfare") or raw.get("benefits")),
                 "salary_text": salary_text,

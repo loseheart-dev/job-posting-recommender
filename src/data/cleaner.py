@@ -6,7 +6,7 @@ from typing import Any
 
 import pandas as pd
 
-from src.data.boss_adapter import normalize_delimited, parse_salary
+from src.data.boss_adapter import normalize_delimited, normalize_skills, parse_salary
 from src.data.schema import JOB_COLUMNS
 
 
@@ -53,14 +53,17 @@ def clean_jobs_with_report(raw_jobs: pd.DataFrame) -> tuple[pd.DataFrame, dict[s
     for column in _TEXT_COLUMNS:
         result[column] = result[column].map(_text)
     result["city"] = result["city"].map(normalize_city)
-    result["skills"] = result["skills"].map(normalize_delimited)
+    result["skills"] = result["skills"].map(normalize_skills)
     result["benefits"] = result["benefits"].map(normalize_delimited)
 
     for column in _SALARY_COLUMNS:
         result[column] = pd.to_numeric(result[column], errors="coerce")
     parsed_salary_count = 0
     for index, salary_text in result["salary_text"].items():
-        if pd.isna(result.at[index, "salary_avg"]):
+        has_explicit_non_month_unit = bool(
+            re.search(r"元\s*/\s*(?:时|小时|周|天|日)", salary_text)
+        )
+        if pd.isna(result.at[index, "salary_avg"]) or has_explicit_non_month_unit:
             minimum, maximum, average = parse_salary(salary_text)
             if average is not None:
                 result.at[index, "salary_min"] = minimum

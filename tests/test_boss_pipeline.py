@@ -141,7 +141,30 @@ class BossPipelineTests(unittest.TestCase):
 
     def test_salary_parser_and_traversal(self) -> None:
         self.assertEqual(parse_salary("500-550元/天"), (10875.0, 11962.5, 11418.75))
+        self.assertEqual(parse_salary("5-20元/时"), (870.0, 3480.0, 2175.0))
+        weekly = parse_salary("500-1000元/周")
+        self.assertAlmostEqual(weekly[0], 2166.6666666666665)
+        self.assertAlmostEqual(weekly[1], 4333.333333333333)
+        self.assertAlmostEqual(weekly[2], 3250.0)
         self.assertEqual(parse_salary("面议"), (None, None, None))
+
+    def test_skill_filter_and_explicit_salary_repair(self) -> None:
+        raw = upstream_job("hourly")
+        raw.update(
+            skills="Python | 要求数据开发经验 | 非外包类 | 不接受居家办公 | 计算机相关专业",
+            salary="5-20元/时",
+        )
+        mapped = map_boss_records([raw])
+        self.assertEqual(mapped[0]["skills"], "Python")
+
+        # 旧映射结果可能已经写入未折算的时薪，清洗时按明确单位纠正。
+        mapped[0]["salary_min"] = 5.0
+        mapped[0]["salary_max"] = 20.0
+        mapped[0]["salary_avg"] = 12.5
+        cleaned, _ = clean_jobs_with_report(pd.DataFrame(mapped))
+        self.assertEqual(cleaned.loc[0, "salary_min"], 870.0)
+        self.assertEqual(cleaned.loc[0, "salary_max"], 3480.0)
+        self.assertEqual(cleaned.loc[0, "salary_avg"], 2175.0)
         search_tasks = build_search_tasks(["大数据"], ["上海"], pages=2)
         self.assertEqual(len(search_tasks), 1)
         self.assertEqual(search_tasks[0].page, 2)

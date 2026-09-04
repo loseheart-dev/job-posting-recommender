@@ -6,7 +6,12 @@ from typing import Any
 
 import pandas as pd
 
-from src.data.boss_adapter import normalize_delimited, normalize_skills, parse_salary
+from src.data.boss_adapter import (
+    detect_salary_unit,
+    normalize_delimited,
+    normalize_skills,
+    parse_salary,
+)
 from src.data.schema import JOB_COLUMNS
 
 
@@ -59,17 +64,19 @@ def clean_jobs_with_report(raw_jobs: pd.DataFrame) -> tuple[pd.DataFrame, dict[s
     for column in _SALARY_COLUMNS:
         result[column] = pd.to_numeric(result[column], errors="coerce")
     parsed_salary_count = 0
+    legacy_salary_values_cleared = pd.Series(False, index=result.index)
     for index, salary_text in result["salary_text"].items():
-        has_explicit_non_month_unit = bool(
-            re.search(r"元\s*/\s*(?:时|小时|周|天|日)", salary_text)
-        )
-        if pd.isna(result.at[index, "salary_avg"]) or has_explicit_non_month_unit:
-            minimum, maximum, average = parse_salary(salary_text)
-            if average is not None:
-                result.at[index, "salary_min"] = minimum
-                result.at[index, "salary_max"] = maximum
-                result.at[index, "salary_avg"] = average
-                parsed_salary_count += 1
+        if not salary_text:
+            continue
+        had_salary_value = result.loc[index, list(_SALARY_COLUMNS)].notna().any()
+        minimum, maximum, average = parse_salary(salary_text)
+        result.at[index, "salary_min"] = minimum
+        result.at[index, "salary_max"] = maximum
+        result.at[index, "salary_avg"] = average
+        if average is not None:
+            parsed_salary_count += 1
+        elif had_salary_value:
+            legacy_salary_values_cleared.at[index] = True
     result.loc[result["salary_min"] > result["salary_max"], ["salary_min", "salary_max"]] = result.loc[
         result["salary_min"] > result["salary_max"], ["salary_max", "salary_min"]
     ].to_numpy()
@@ -80,7 +87,14 @@ def clean_jobs_with_report(raw_jobs: pd.DataFrame) -> tuple[pd.DataFrame, dict[s
 
     duplicate_mask = result["job_id"].ne("") & result["job_id"].duplicated(keep="first")
     duplicate_count = int(duplicate_mask.sum())
+    legacy_salary_values_cleared = legacy_salary_values_cleared.loc[~duplicate_mask]
     result = result.loc[~duplicate_mask].reset_index(drop=True)
+    salary_units = result["salary_text"].map(detect_salary_unit)
+    salary_text_present = result["salary_text"].ne("")
+    salary_unit_counts = {
+        unit: int((salary_text_present & salary_units.eq(unit)).sum())
+        for unit in ("month", "hour", "day", "week", "year", "piece", "negotiable", "unknown")
+    }
     missing_counts = {column: _missing_count(result[column]) for column in JOB_COLUMNS}
     invalid_salary_count = int((result["salary_text"].ne("") & result["salary_avg"].isna()).sum())
     report = {
@@ -89,6 +103,14 @@ def clean_jobs_with_report(raw_jobs: pd.DataFrame) -> tuple[pd.DataFrame, dict[s
         "duplicate_count": duplicate_count,
         "parsed_salary_count": parsed_salary_count,
         "invalid_salary_count": invalid_salary_count,
+        "salary_unit_counts": salary_unit_counts,
+        "non_monthly_salary_excluded": int(
+            (salary_text_present & salary_units.ne("month")).sum()
+        ),
+        "legacy_salary_values_cleared": int(legacy_salary_values_cleared.sum()),
+        "valid_monthly_salary_count": int(
+            (salary_units.eq("month") & result["salary_avg"].notna()).sum()
+        ),
         "missing_counts": missing_counts,
     }
     return result, report
@@ -133,8 +155,8 @@ def write_cleaning_record(
         "rules": {
             "deduplicate": "按非空 job_id 保留首次记录",
             "missing_text": "文本字段保留为空",
-            "missing_salary": "薪资无法解析时保留为空，不填 0",
-            "salary_unit": "人民币元/月；元/天按 21.75 个工作日折算",
+            "missing_salary": "薪资无法解析或不是月薪时保留 salary_text，并将数值列置空",
+            "salary_unit": "只解析明确人民币月薪，不根据标题或工时假设折算时薪、日薪、周薪和年薪",
             "city": "取城市名称并去除末尾‘市’",
             "skills_and_benefits": "统一使用英文分号分隔并去重",
         },

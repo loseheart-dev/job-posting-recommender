@@ -9,6 +9,7 @@ import pandas as pd
 
 import scripts.run_boss_tasks as boss_runner
 from src.data.boss_adapter import (
+    detect_salary_unit,
     import_upstream_result,
     load_upstream_records,
     map_boss_records,
@@ -71,7 +72,9 @@ class BossPipelineTests(unittest.TestCase):
             self.assertIn("数据整理", mapped[0]["description"])
             cleaned, report = clean_jobs_with_report(pd.DataFrame(mapped))
             self.assertEqual(report["output_count"], 4)
-            self.assertEqual(cleaned.loc[2, "salary_avg"], 11418.75)
+            self.assertTrue(pd.isna(cleaned.loc[2, "salary_avg"]))
+            self.assertEqual(report["salary_unit_counts"]["day"], 1)
+            self.assertEqual(report["non_monthly_salary_excluded"], 1)
             output_path = root / "processed" / "jobs.csv"
             written, written_report = write_clean_jobs(pd.DataFrame(mapped), output_path)
             self.assertEqual(len(written), 4)
@@ -140,12 +143,22 @@ class BossPipelineTests(unittest.TestCase):
         self.assertTrue(pd.isna(cleaned.loc[0, "salary_avg"]))
 
     def test_salary_parser_and_traversal(self) -> None:
-        self.assertEqual(parse_salary("500-550元/天"), (10875.0, 11962.5, 11418.75))
-        self.assertEqual(parse_salary("5-20元/时"), (870.0, 3480.0, 2175.0))
-        weekly = parse_salary("500-1000元/周")
-        self.assertAlmostEqual(weekly[0], 2166.6666666666665)
-        self.assertAlmostEqual(weekly[1], 4333.333333333333)
-        self.assertAlmostEqual(weekly[2], 3250.0)
+        self.assertEqual(detect_salary_unit("20-30K"), "month")
+        self.assertEqual(detect_salary_unit("500-550元/天"), "day")
+        self.assertEqual(detect_salary_unit("5-20元/时"), "hour")
+        self.assertEqual(detect_salary_unit("500-1000元/周"), "week")
+        self.assertEqual(detect_salary_unit("20-30万/年"), "year")
+        self.assertEqual(detect_salary_unit("面议"), "negotiable")
+
+        self.assertEqual(parse_salary("20-30K"), (20000.0, 30000.0, 25000.0))
+        self.assertEqual(parse_salary("1.5-2万"), (15000.0, 20000.0, 17500.0))
+        self.assertEqual(parse_salary("20K·13薪"), (20000.0, 20000.0, 20000.0))
+        self.assertEqual(parse_salary("100-200K·15薪"), (100000.0, 200000.0, 150000.0))
+        self.assertEqual(parse_salary("5000-8000元/月"), (5000.0, 8000.0, 6500.0))
+        self.assertEqual(parse_salary("500-550元/天"), (None, None, None))
+        self.assertEqual(parse_salary("5-20元/时"), (None, None, None))
+        self.assertEqual(parse_salary("500-1000元/周"), (None, None, None))
+        self.assertEqual(parse_salary("20-30万/年"), (None, None, None))
         self.assertEqual(parse_salary("面议"), (None, None, None))
 
     def test_skill_filter_and_explicit_salary_repair(self) -> None:
@@ -157,14 +170,23 @@ class BossPipelineTests(unittest.TestCase):
         mapped = map_boss_records([raw])
         self.assertEqual(mapped[0]["skills"], "Python")
 
-        # 旧映射结果可能已经写入未折算的时薪，清洗时按明确单位纠正。
+        # 旧映射结果可能已经把非月薪写入数值列，清洗时必须清除。
         mapped[0]["salary_min"] = 5.0
         mapped[0]["salary_max"] = 20.0
         mapped[0]["salary_avg"] = 12.5
-        cleaned, _ = clean_jobs_with_report(pd.DataFrame(mapped))
-        self.assertEqual(cleaned.loc[0, "salary_min"], 870.0)
-        self.assertEqual(cleaned.loc[0, "salary_max"], 3480.0)
-        self.assertEqual(cleaned.loc[0, "salary_avg"], 2175.0)
+        cleaned, report = clean_jobs_with_report(pd.DataFrame(mapped))
+        self.assertTrue(pd.isna(cleaned.loc[0, "salary_min"]))
+        self.assertTrue(pd.isna(cleaned.loc[0, "salary_max"]))
+        self.assertTrue(pd.isna(cleaned.loc[0, "salary_avg"]))
+        self.assertEqual(report["legacy_salary_values_cleared"], 1)
+
+        mapped[0]["salary_text"] = "4900-5000元/时"
+        mapped[0]["salary_min"] = 852600.0
+        mapped[0]["salary_max"] = 870000.0
+        mapped[0]["salary_avg"] = 861300.0
+        cleaned, report = clean_jobs_with_report(pd.DataFrame(mapped))
+        self.assertTrue(pd.isna(cleaned.loc[0, "salary_avg"]))
+        self.assertEqual(report["legacy_salary_values_cleared"], 1)
         search_tasks = build_search_tasks(["大数据"], ["上海"], pages=2)
         self.assertEqual(len(search_tasks), 1)
         self.assertEqual(search_tasks[0].page, 2)

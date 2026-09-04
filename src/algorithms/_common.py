@@ -182,20 +182,27 @@ def salary_stats(series: pd.Series) -> dict[str, object]:
     }
 # 疑似异常低薪阈值（元/月）：低于该值的有效薪资大概率是“元/时”未折算等解析异常。
 SALARY_ABNORMAL_LOW = 500.0
+# 疑似异常高薪阈值（元/月）：超过该值的有效薪资大概率是“元/时”误标折算等解析异常
+#（如“Python 4900-5000元/时”被按 8*21.75 折算成 86 万元/月）。
+SALARY_ABNORMAL_HIGH = 100000.0
 
 def flag_abnormal_salary(
-    jobs: pd.DataFrame, low_threshold: float = SALARY_ABNORMAL_LOW
+    jobs: pd.DataFrame,
+    low_threshold: float = SALARY_ABNORMAL_LOW,
+    high_threshold: float = SALARY_ABNORMAL_HIGH,
 ) -> pd.Series:
     """标记疑似异常薪资（算法层兜底）。
 
-    薪资有效但低于 low_threshold 视为 True（如“5-20元/时”被解析成 12.5 元/月），
+    薪资有效但低于 low_threshold 或高于 high_threshold 视为 True：
+    - 低值：如“5-20元/时”被解析成 12.5 元/月（未折算）；
+    - 高值：如“元/时”误标后被按全职工时折算成 86 万元/月（过度折算）。
     用于在因素分析与薪资预测中剔除，避免污染整体均值与因子方向。
     返回与输入同索引的布尔 Series；缺少 salary_avg 字段时全部为 False。
     """
     if "salary_avg" not in jobs.columns:
         return pd.Series(False, index=jobs.index)
     salary = pd.to_numeric(jobs["salary_avg"], errors="coerce")
-    return salary.notna() & (salary < low_threshold)
+    return salary.notna() & ((salary < low_threshold) | (salary > high_threshold))
 
 
 def encode_job_features(

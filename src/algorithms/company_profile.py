@@ -42,9 +42,13 @@ def build_company_profiles(jobs: pd.DataFrame) -> pd.DataFrame:
             continue
         row: dict[str, object] = {"company": company}
         for column in ("company_size", "company_nature", "industry"):
-            row[column] = (
+            value = (
                 _most_common(group[column]) if column in group.columns else ""
             )
+            # 公司性质全缺失时输出“未知”兜底，便于前端/业务识别信息缺失
+            if column == "company_nature" and not value:
+                value = "未知"
+            row[column] = value
         if "salary_avg" in group.columns:
             row["salary_summary"] = salary_stats(group["salary_avg"])
         else:

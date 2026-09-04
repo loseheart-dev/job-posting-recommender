@@ -296,6 +296,14 @@ def _render_analysis(jobs: pd.DataFrame) -> None:
 
 def _render_recommendation(jobs: pd.DataFrame) -> None:
     st.subheader("个性化推荐")
+    recommendation_mode = st.radio(
+        "推荐模式",
+        ["多因素推荐（主流程）", "基础 TF-IDF 推荐"],
+        horizontal=True,
+    )
+    mode = "multifactor" if recommendation_mode == "多因素推荐（主流程）" else "basic"
+    recommendation_results = st.session_state.setdefault("recommendation_results", {})
+    st.caption("默认使用多因素推荐；基础 TF-IDF 推荐作为独立对照入口。")
     with st.form("profile_form"):
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -314,8 +322,9 @@ def _render_recommendation(jobs: pd.DataFrame) -> None:
         submitted = st.form_submit_button("生成推荐")
     if not submitted:
         st.info("填写学生画像后点击“生成推荐”。")
-        if "recommendations" in st.session_state and not st.session_state["recommendations"].empty:
-            _display_recommendations(st.session_state["recommendations"])
+        previous = recommendation_results.get(mode)
+        if previous is not None and not previous.empty:
+            _display_recommendations(previous, mode)
         return
     try:
         profile = StudentProfile.from_mapping({
@@ -348,22 +357,32 @@ def _render_recommendation(jobs: pd.DataFrame) -> None:
     })
     st.markdown("### 推荐结果")
     try:
-        recommendations = analysis_service.recommend_jobs_multifactor(profile, jobs, top_k=5)
+        if mode == "basic":
+            recommendations = analysis_service.recommend_jobs(profile, jobs, top_k=5)
+        else:
+            recommendations = analysis_service.recommend_jobs_multifactor(profile, jobs, top_k=5)
     except Exception as exc:
         st.error(f"推荐接口调用失败：{exc}")
         return
     if recommendations.empty:
-        st.session_state.pop("recommendations", None)
+        recommendation_results.pop(mode, None)
         st.warning("没有生成推荐结果，请检查画像是否填写完整。")
         return
-    st.session_state["recommendations"] = recommendations
-    _display_recommendations(recommendations)
+    recommendation_results[mode] = recommendations
+    _display_recommendations(recommendations, mode)
 
 
-def _display_recommendations(recommendations: pd.DataFrame) -> None:
+def _display_recommendations(recommendations: pd.DataFrame, mode: str) -> None:
     for _, row in recommendations.iterrows():
         with st.container(border=True):
             st.markdown(f"**{row['title']}** · {row['company']}")
+            if mode == "basic":
+                st.write(f"城市：{row['city'] or '未知'}")
+                st.write(f"文本相似度：{row['similarity_score']:.3f}")
+                st.write(f"匹配技能：{row['matched_skills'] or '无'}")
+                st.markdown(f"缺失技能：<span class='warning-text'>{row['missing_skills'] or '无'}</span>", unsafe_allow_html=True)
+                st.write(f"推荐理由：{row['reason']}")
+                continue
             st.write(f"公司规模：{row['company_size'] or '未知'}")
             st.write(f"公司性质：{row['company_nature'] or '未知'}")
             st.write(f"行业：{row['industry'] or '未知'}")
@@ -492,7 +511,6 @@ def _render_collection(jobs: pd.DataFrame) -> None:
         rows = [task.to_dict() for task in tasks]
         task_df = pd.DataFrame(rows)
         st.dataframe(task_df, use_container_width=True)
-
 
 
 

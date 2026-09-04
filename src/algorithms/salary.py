@@ -130,7 +130,7 @@ def predict_salary(
     使用技能/学历/经验/城市/公司等编码特征（不含薪资列）预测 salary_avg，
     划分独立测试集并报告 MAE 与 R²；返回带 predicted_salary 的岗位表，
     并新增 salary_abnormal 列标记疑似异常薪资（“元/时”未折算等解析异常）。
-    drop_abnormal=True 时训练/评估剔除异常薪资样本，避免低值污染指标。
+    drop_abnormal=True 时训练/评估剔除异常低薪样本，避免低值污染指标。
     薪资有效样本不足时抛出明确错误。
     """
     validate_jobs(jobs)

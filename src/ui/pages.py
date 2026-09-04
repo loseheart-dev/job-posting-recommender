@@ -36,6 +36,42 @@ def _apply_style() -> None:
         h1, h2, h3 {{
             color: {COLORS['text']} !important;
         }}
+        [data-testid="stMetricValue"] {{
+            color: {COLORS['text']} !important;
+        }}
+        [data-testid="stCaptionContainer"] {{
+            color: {COLORS['muted']} !important;
+        }}
+        .stButton > button {{
+            border-radius: 8px;
+            border: 1px solid {COLORS['border']};
+        }}
+        .stButton > button:hover {{
+            border-color: {COLORS['primary']};
+        }}
+        [data-testid="stExpander"] {{
+            border: 1px solid {COLORS['border']};
+            border-radius: 8px;
+            background-color: {COLORS['surface']};
+        }}
+        [data-testid="stForm"] {{
+            background-color: {COLORS['surface']};
+            border: 1px solid {COLORS['border']};
+            border-radius: 8px;
+            padding: 1rem;
+        }}
+        .salary-text {{
+            color: {COLORS['salary']} !important;
+            font-weight: 600;
+        }}
+        .success-text {{
+            color: {COLORS['success']} !important;
+            font-weight: 600;
+        }}
+        .warning-text {{
+            color: {COLORS['warning']} !important;
+            font-weight: 600;
+        }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -50,7 +86,12 @@ def render_home(jobs: pd.DataFrame) -> None:
         ["市场概览", "岗位检索", "分析洞察", "个性化推荐", "采集管理"],
     )
     st.title("面向大学生求职的岗位数据分析与个性化推荐系统")
-    st.caption(f"数据来源：data/processed/jobs.csv · 共 {len(jobs)} 条岗位记录")
+    import os
+    data_updated = ""
+    if os.path.exists("data/processed/jobs.csv"):
+        data_updated = os.path.getmtime("data/processed/jobs.csv")
+        data_updated = pd.Timestamp(data_updated, unit="s").strftime("%Y-%m-%d %H:%M:%S")
+    st.caption(f"数据来源：data/processed/jobs.csv · 共 {len(jobs)} 条岗位记录 · 数据更新时间：{data_updated or '未知'}")
     if jobs.empty:
         st.info("尚未找到清洗后岗位数据，请将 jobs.csv 放入 data/processed/。")
         return
@@ -75,7 +116,10 @@ def _render_overview(jobs: pd.DataFrame) -> None:
     salary_coverage = (salary_count / job_count * 100) if job_count else 0.0
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("岗位总量", job_count)
-    col2.metric("平均月薪", f"{salary_avg:,.0f} 元" if salary_avg is not None else "暂无数据")
+    if salary_avg is not None:
+        col2.markdown(f"**平均月薪**<br><span class='salary-text'>{salary_avg:,.0f} 元</span>", unsafe_allow_html=True)
+    else:
+        col2.metric("平均月薪", "暂无数据")
     col3.metric("薪资数据覆盖率", f"{salary_coverage:.1f}%")
     col4.metric("高频技能 Top1", top_skills[0][0] if top_skills else "暂无数据")
     st.subheader("高频技能")
@@ -171,73 +215,83 @@ def _render_search(jobs: pd.DataFrame) -> None:
 
 def _render_analysis(jobs: pd.DataFrame) -> None:
     st.subheader("分析洞察")
-    st.markdown("### 薪资分布")
-    try:
-        buckets = salary_distribution(jobs)
-        if buckets:
-            dist_df = pd.DataFrame(buckets).sort_values("min").reset_index(drop=True)
-            dist_df["区间"] = dist_df["range"]
-            fig = px.bar(
-                dist_df,
-                x="区间",
-                y="count",
-                labels={"区间": "薪资区间（元/月）", "count": "岗位数量"},
-                title="薪资分布",
-            )
-            fig.update_layout(xaxis_tickangle=-45)
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("暂无有效薪资数据，无法绘制薪资分布。")
-    except ValueError as exc:
-        st.error(str(exc))
-    st.markdown("### 薪资影响因素")
-    try:
-        salary_factors = analysis_service.salary_factor_analysis(jobs)
-        st.dataframe(salary_factors, use_container_width=True)
-    except Exception as exc:
-        st.warning(f"薪资因素分析不可用：{exc}")
-    st.markdown("### 岗位能力需求图谱")
-    try:
-        graph = analysis_service.skill_graph(jobs)
-        freq = graph["skill_frequency"][:15]
-        if freq:
-            freq_df = pd.DataFrame(freq, columns=["技能", "出现次数"])
-            fig = px.bar(freq_df, x="技能", y="出现次数", title="高频技能 Top 15")
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("暂无技能数据")
-    except Exception as exc:
-        st.warning(f"能力需求图谱不可用：{exc}")
-    st.markdown("### 招聘企业画像")
-    try:
-        profiles = analysis_service.company_profile(jobs)
-        st.dataframe(profiles.head(20), use_container_width=True)
-    except Exception as exc:
-        st.warning(f"企业画像不可用：{exc}")
-    st.markdown("### 岗位聚类")
-    try:
-        clustered, summaries = analysis_service.job_cluster(jobs)
-        cluster_df = clustered[["title", "company", "city", "salary_avg", "cluster_id"]].head(20)
-        st.dataframe(cluster_df, use_container_width=True)
-        for cluster_id, info in summaries.items():
-            with st.container(border=True):
-                st.markdown(f"**群组 {cluster_id}**")
-                st.write(f"岗位数量：{info.get('count', '未知')}")
-                st.write(f"平均薪资：{info.get('salary_avg', '未知')}")
-                st.write(f"薪资范围：{info.get('salary_range', '未知')}")
-                st.write(f"代表城市：{info.get('dominant_city', '未知')}")
-                st.write(f"高频技能：{', '.join(info.get('top_skills', [])) or '未知'}")
-    except Exception as exc:
-        st.warning(f"岗位聚类不可用：{exc}")
-    st.markdown("### 薪资预测模型评估")
-    try:
-        _, metrics = analysis_service.salary_prediction(jobs)
-        col1, col2 = st.columns(2)
-        col1.metric("MAE", metrics["mae"])
-        col2.metric("R²", metrics["r2"])
-        st.caption("随机森林模型在独立测试集上的评估指标。")
-    except Exception as exc:
-        st.warning(f"薪资预测不可用：{exc}")
+
+    col_left, col_mid, col_right = st.columns(3)
+
+    with col_left:
+        st.markdown("### 薪资分布")
+        try:
+            buckets = salary_distribution(jobs)
+            if buckets:
+                dist_df = pd.DataFrame(buckets).sort_values("min").reset_index(drop=True)
+                dist_df["区间"] = dist_df["range"]
+                fig = px.bar(
+                    dist_df,
+                    x="区间",
+                    y="count",
+                    labels={"区间": "薪资区间（元/月）", "count": "岗位数量"},
+                    title="薪资分布",
+                )
+                fig.update_layout(xaxis_tickangle=-45)
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("暂无有效薪资数据，无法绘制薪资分布。")
+        except ValueError as exc:
+            st.error(str(exc))
+
+        st.markdown("### 岗位能力需求图谱")
+        try:
+            graph = analysis_service.skill_graph(jobs)
+            freq = graph["skill_frequency"][:15]
+            if freq:
+                freq_df = pd.DataFrame(freq, columns=["技能", "出现次数"])
+                fig = px.bar(freq_df, x="技能", y="出现次数", title="高频技能 Top 15")
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("暂无技能数据")
+        except Exception as exc:
+            st.warning(f"能力需求图谱不可用：{exc}")
+
+    with col_mid:
+        st.markdown("### 薪资影响因素")
+        try:
+            salary_factors = analysis_service.salary_factor_analysis(jobs)
+            st.dataframe(salary_factors, use_container_width=True)
+        except Exception as exc:
+            st.warning(f"薪资因素分析不可用：{exc}")
+
+        st.markdown("### 岗位聚类")
+        try:
+            clustered, summaries = analysis_service.job_cluster(jobs)
+            cluster_df = clustered[["title", "company", "city", "salary_avg", "cluster_id"]].head(10)
+            st.dataframe(cluster_df, use_container_width=True)
+            for cluster_id, info in summaries.items():
+                with st.container(border=True):
+                    st.markdown(f"**群组 {cluster_id}**")
+                    st.write(f"岗位数量：{info.get('count', '未知')}")
+                    st.write(f"平均薪资：{info.get('salary_avg', '未知')}")
+                    st.write(f"代表城市：{info.get('dominant_city', '未知')}")
+                    st.write(f"高频技能：{', '.join(info.get('top_skills', [])) or '未知'}")
+        except Exception as exc:
+            st.warning(f"岗位聚类不可用：{exc}")
+
+    with col_right:
+        st.markdown("### 招聘企业画像")
+        try:
+            profiles = analysis_service.company_profile(jobs)
+            st.dataframe(profiles.head(15), use_container_width=True)
+        except Exception as exc:
+            st.warning(f"企业画像不可用：{exc}")
+
+        st.markdown("### 薪资预测模型评估")
+        try:
+            _, metrics = analysis_service.salary_prediction(jobs)
+            metric_col1, metric_col2 = st.columns(2)
+            metric_col1.metric("MAE", metrics["mae"])
+            metric_col2.metric("R²", metrics["r2"])
+            st.caption("随机森林模型在独立测试集上的评估指标。")
+        except Exception as exc:
+            st.warning(f"薪资预测不可用：{exc}")
 
 
 def _render_recommendation(jobs: pd.DataFrame) -> None:
@@ -299,6 +353,7 @@ def _render_recommendation(jobs: pd.DataFrame) -> None:
         st.error(f"推荐接口调用失败：{exc}")
         return
     if recommendations.empty:
+        st.session_state.pop("recommendations", None)
         st.warning("没有生成推荐结果，请检查画像是否填写完整。")
         return
     st.session_state["recommendations"] = recommendations
@@ -312,10 +367,11 @@ def _display_recommendations(recommendations: pd.DataFrame) -> None:
             st.write(f"公司规模：{row['company_size'] or '未知'}")
             st.write(f"公司性质：{row['company_nature'] or '未知'}")
             st.write(f"行业：{row['industry'] or '未知'}")
-            st.write(f"薪资区间：{row['salary_range'] or '未知'}")
-            st.write(f"匹配概率：{row['match_probability']:.1%}")
+            st.markdown(f"薪资区间：<span class='salary-text'>{row['salary_range'] or '未知'}</span>", unsafe_allow_html=True)
+            st.markdown(f"匹配概率：<span class='success-text'>{row['match_probability']:.1%}</span>", unsafe_allow_html=True)
             st.write(f"匹配技能：{row['matched_skills'] or '无'}")
-            st.write(f"缺失技能：{row['missing_skills'] or '无'}")
+            missing = row['missing_skills'] or '无'
+            st.markdown(f"缺失技能：<span class='warning-text'>{missing}</span>", unsafe_allow_html=True)
             st.write(f"推荐理由：{row['reason']}")
 
 
@@ -436,6 +492,11 @@ def _render_collection(jobs: pd.DataFrame) -> None:
         rows = [task.to_dict() for task in tasks]
         task_df = pd.DataFrame(rows)
         st.dataframe(task_df, use_container_width=True)
+
+
+
+
+
 
 
 

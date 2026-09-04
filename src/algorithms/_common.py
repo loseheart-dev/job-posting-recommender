@@ -30,6 +30,45 @@ OPTIONAL_FACTOR_COLUMNS = (
     "company_size",
     "industry",
 )
+# 技能白名单：只保留真实技能词，过滤“要求xx经验/非外包类/不接受居家办公”等噪声，
+# 用于降噪技能图谱、企业画像技能摘要与聚类/预测的特征编码。
+SKILL_WHITELIST: frozenset[str] = frozenset({
+    # --- 常见编程语言与开发工具 ---
+    "Python", "SQL", "Java", "C++", "C", "C#", "Go", "Scala", "R", "MATLAB",
+    "JavaScript", "TypeScript", "Node.js", "React", "Vue", "HTML", "CSS",
+    "Shell", "Bash", "PowerShell", "Vim", "Regex", "Git", "Linux",
+    "Docker", "Kubernetes", "Nginx", "Spring", "SpringBoot", "SpringCloud",
+    "MyBatis", "Hibernate", "FastAPI", "Flask", "Django", "Tornado", "Celery",
+    # --- 数据处理 / 大数据 / 数据库 ---
+    "Excel", "pandas", "NumPy", "SciPy", "Matplotlib", "Seaborn", "Plotly",
+    "Spark", "PySpark", "Hadoop", "Hive", "Flink", "Kafka", "HDFS", "HBase",
+    "Zookeeper", "Storm", "Pulsar", "RocketMQ", "RabbitMQ", "ETL", "DataX",
+    "Sqoop", "Flume", "Oozie", "Azkaban", "Airflow", "Presto", "Trino",
+    "MySQL", "Oracle", "PostgreSQL", "MongoDB", "Redis", "Memcached",
+    "Cassandra", "Elasticsearch", "ClickHouse", "Snowflake", "Vertica",
+    "Doris", "Iceberg", "Hudi", "Neo4j", "DataGrip",
+    # --- 机器学习 / 深度学习 / 数据分析工具 ---
+    "PyTorch", "TensorFlow", "Keras", "PaddlePaddle", "OpenCV", "scikit-learn",
+    "XGBoost", "LightGBM", "CatBoost", "GBDT", "SVM", "MLflow", "Tableau",
+    "PowerBI", "Superset", "ECharts", "NLP",
+    # --- 测试 / 运维 / 工程化 ---
+    "Selenium", "Scrapy", "BeautifulSoup", "lxml", "Jenkins", "GitLab",
+    "Ansible", "Terraform", "Prometheus", "Grafana", "RESTful", "GraphQL",
+    "gRPC", "WebSocket", "DevOps", "CI/CD", "微服务", "分布式", "高并发",
+    "消息队列", "性能优化", "自动化测试", "接口测试", "云计算",
+    # --- 中文通用技能 / 业务技能（与样例数据保持一致） ---
+    "机器学习", "深度学习", "数据分析", "数据挖掘", "数据标注", "数据治理",
+    "数据架构", "数据库调优", "特征工程", "统计建模", "推荐系统", "大模型",
+    "协同过滤", "分布式训练", "用户增长", "产品设计", "元数据", "金融工程",
+    "A/B测试", "数据仓库", "数据采集", "数据可视化", "自然语言处理",
+    "计算机视觉", "语音识别", "强化学习", "知识图谱", "图神经网络",
+    "迁移学习", "联邦学习", "数据安全", "数据产品", "商业分析", "需求分析",
+    "用户研究", "爬虫", "大数据", "数据开发", "数仓", "埋点", "漏斗分析",
+    "留存分析", "算法优化", "数据清洗", "数据建模", "数据报表", "经营分析",
+    "数据中台", "数据湖", "数据管道", "推荐算法", "排序算法", "风控算法",
+    "广告算法", "搜索算法", "数据运营", "指标体系", "数据结构", "算法",
+    "统计学", "概率论", "项目管理", "敏捷开发",
+})
 
 
 def validate_jobs(jobs: pd.DataFrame) -> None:
@@ -48,8 +87,12 @@ def available_columns(jobs: pd.DataFrame, names: Iterable[str]) -> list[str]:
     return [name for name in names if name in jobs.columns]
 
 
-def split_skills(skills: object) -> list[str]:
-    """将 skills 按英文分号拆分，去空并保序去重。"""
+def split_skills(skills: object, known_only: bool = True) -> list[str]:
+    """将 skills 按英文分号拆分，去空并保序去重。
+
+    known_only=True 时只保留白名单内的真实技能词，过滤
+    “要求xx经验/非外包类/不接受居家办公/计算机相关专业”等非技能噪声。
+    """
     if skills is None:
         return []
     if isinstance(skills, (list, tuple, set)):
@@ -59,8 +102,11 @@ def split_skills(skills: object) -> list[str]:
     seen: list[str] = []
     for value in values:
         cleaned = value.strip()
-        if cleaned and cleaned not in seen:
-            seen.append(cleaned)
+        if not cleaned or cleaned in seen:
+            continue
+        if known_only and cleaned not in SKILL_WHITELIST:
+            continue
+        seen.append(cleaned)
     return seen
 
 

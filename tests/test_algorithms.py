@@ -161,6 +161,26 @@ def test_experience_mapping() -> None:
     check("10年以上取保守估计", experience_years("10年以上") == 12.0)
 
 
+def test_skill_noise_filter() -> None:
+    print("[7/7] 技能白名单降噪案例")
+    from src.algorithms._common import SKILL_WHITELIST, split_skills
+    noisy = ("要求数据开发经验;非外包类;Python;SQL;不接受居家办公;"
+             "计算机相关专业;Excel;数据平台开发经验")
+    kept = split_skills(noisy)
+    check("白名单过滤后保留真实技能", kept == ["Python", "SQL", "Excel"], str(kept))
+    check("噪声词被过滤", not any(word in kept for word in ("要求数据开发经验", "非外包类", "不接受居家办公", "计算机相关专业", "数据平台开发经验")))
+    check("样例技能均在白名单", all(s in SKILL_WHITELIST for s in split_skills("Python;SQL;Excel;Spark;PyTorch;机器学习;pandas;Hadoop;Hive")))
+    # 应用到图谱：噪声不进入节点
+    jobs = build_sample_frame().copy()
+    jobs.loc[0, "skills"] = "Python;要求数据开发经验;非外包类"
+    graph = build_skill_graph(jobs)
+    node_ids = {node["id"] for node in graph["nodes"]}
+    check("图谱节点不含噪声词", "要求数据开发经验" not in node_ids and "非外包类" not in node_ids)
+    check("图谱节点保留真实技能", "Python" in node_ids)
+    # known_only=False 仍可拿到原始拆分（供需要原始文本的场景）
+    raw = split_skills("Python;非外包类", known_only=False)
+    check("known_only=False 返回原始拆分", raw == ["Python", "非外包类"], str(raw))
+
 def main() -> None:
     print("郑维豪算法模块验收测试\n")
     test_normal()
@@ -169,6 +189,7 @@ def main() -> None:
     test_insufficient_samples()
     test_optional_columns_degradation()
     test_experience_mapping()
+    test_skill_noise_filter()
     print(f"\n结果: {PASS} 通过, {FAIL} 失败")
     if FAIL:
         raise SystemExit(1)

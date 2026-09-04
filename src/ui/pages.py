@@ -2,22 +2,55 @@
 import plotly.express as px
 import streamlit as st
 
-from src.algorithms.company_profile import build_company_profiles
-from src.algorithms.recommender import recommend_jobs_multifactor
-from src.algorithms.salary import analyze_salary_factors, predict_salary
-from src.algorithms.skill_graph import build_skill_graph
 from src.data.schema import StudentProfile
-from src.services import site_service, task_service
+from src.services import analysis_service, site_service, task_service
 from src.services.job_service import filter_jobs, salary_distribution, summarize_jobs
+
+# 视觉规范色彩 Token（来自 docs/团队/前端设计说明.md）
+COLORS = {
+    "page_bg": "#F5F8FD",
+    "surface": "#FFFFFF",
+    "text": "#102B63",
+    "muted": "#60708F",
+    "primary": "#2878F0",
+    "success": "#2FB77A",
+    "salary": "#F1A52B",
+    "warning": "#D96C52",
+    "border": "#DCE6F4",
+}
+
+
+def _apply_style() -> None:
+    st.markdown(
+        f"""
+        <style>
+        .main > div {{
+            background-color: {COLORS['page_bg']} !important;
+        }}
+        body {{
+            background-color: {COLORS['page_bg']} !important;
+        }}
+        .block-container {{
+            padding-top: 1.5rem !important;
+        }}
+        h1, h2, h3 {{
+            color: {COLORS['text']} !important;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def render_home(jobs: pd.DataFrame) -> None:
     st.set_page_config(page_title="岗位数据分析与个性化推荐", layout="wide")
+    _apply_style()
     page = st.sidebar.radio(
         "导航",
         ["市场概览", "岗位检索", "分析洞察", "个性化推荐", "采集管理"],
     )
     st.title("面向大学生求职的岗位数据分析与个性化推荐系统")
+    st.caption(f"数据来源：data/processed/jobs.csv · 共 {len(jobs)} 条岗位记录")
     if jobs.empty:
         st.info("尚未找到清洗后岗位数据，请将 jobs.csv 放入 data/processed/。")
         return
@@ -106,6 +139,27 @@ def _render_search(jobs: pd.DataFrame) -> None:
         "education", "salary_text", "skills", "source",
     ]
     st.dataframe(result[display_columns], use_container_width=True)
+
+    st.markdown("### 岗位详情")
+    selected_index = st.selectbox(
+        "选择一个岗位查看详情",
+        range(len(result)),
+        format_func=lambda i: f"{result.iloc[i]['title']} · {result.iloc[i]['company']}",
+    )
+    if selected_index is not None:
+        row = result.iloc[selected_index]
+        with st.container(border=True):
+            st.markdown(f"**{row['title']}** · {row['company']}")
+            st.write(f"城市：{row['city'] or '未知'}")
+            st.write(f"工作方式：{row['work_type'] or '未知'}")
+            st.write(f"经验要求：{row['experience'] or '未知'}")
+            st.write(f"学历要求：{row['education'] or '未知'}")
+            st.write(f"薪资：{row['salary_text'] or '未知'}")
+            st.write(f"技能：{row['skills'] or '未知'}")
+            st.write(f"福利：{row['benefits'] or '未知'}")
+            st.write(f"来源：{row['source'] or '未知'}")
+            if row['description']:
+                st.write(f"岗位描述：{row['description']}")
     csv = result.to_csv(index=False).encode("utf-8")
     st.download_button(
         label="下载当前筛选结果 CSV",
@@ -138,14 +192,14 @@ def _render_analysis(jobs: pd.DataFrame) -> None:
         st.error(str(exc))
     st.markdown("### 薪资影响因素")
     try:
-        salary_factors = analyze_salary_factors(jobs)
+        salary_factors = analysis_service.salary_factor_analysis(jobs)
         st.dataframe(salary_factors, use_container_width=True)
     except Exception as exc:
         st.warning(f"薪资因素分析不可用：{exc}")
     st.markdown("### 岗位能力需求图谱")
     try:
-        skill_graph = build_skill_graph(jobs)
-        freq = skill_graph["skill_frequency"][:15]
+        graph = analysis_service.skill_graph(jobs)
+        freq = graph["skill_frequency"][:15]
         if freq:
             freq_df = pd.DataFrame(freq, columns=["技能", "出现次数"])
             fig = px.bar(freq_df, x="技能", y="出现次数", title="高频技能 Top 15")
@@ -156,13 +210,28 @@ def _render_analysis(jobs: pd.DataFrame) -> None:
         st.warning(f"能力需求图谱不可用：{exc}")
     st.markdown("### 招聘企业画像")
     try:
-        company_profiles = build_company_profiles(jobs)
-        st.dataframe(company_profiles.head(20), use_container_width=True)
+        profiles = analysis_service.company_profile(jobs)
+        st.dataframe(profiles.head(20), use_container_width=True)
     except Exception as exc:
         st.warning(f"企业画像不可用：{exc}")
+    st.markdown("### 岗位聚类")
+    try:
+        clustered, summaries = analysis_service.job_cluster(jobs)
+        cluster_df = clustered[["title", "company", "city", "salary_avg", "cluster_id"]].head(20)
+        st.dataframe(cluster_df, use_container_width=True)
+        for cluster_id, info in summaries.items():
+            with st.container(border=True):
+                st.markdown(f"**群组 {cluster_id}**")
+                st.write(f"岗位数量：{info.get('count', '未知')}")
+                st.write(f"平均薪资：{info.get('salary_avg', '未知')}")
+                st.write(f"薪资范围：{info.get('salary_range', '未知')}")
+                st.write(f"代表城市：{info.get('dominant_city', '未知')}")
+                st.write(f"高频技能：{', '.join(info.get('top_skills', [])) or '未知'}")
+    except Exception as exc:
+        st.warning(f"岗位聚类不可用：{exc}")
     st.markdown("### 薪资预测模型评估")
     try:
-        _, metrics = predict_salary(jobs)
+        _, metrics = analysis_service.salary_prediction(jobs)
         col1, col2 = st.columns(2)
         col1.metric("MAE", metrics["mae"])
         col2.metric("R²", metrics["r2"])
@@ -191,8 +260,9 @@ def _render_recommendation(jobs: pd.DataFrame) -> None:
         submitted = st.form_submit_button("生成推荐")
     if not submitted:
         st.info("填写学生画像后点击“生成推荐”。")
+        if "recommendations" in st.session_state and not st.session_state["recommendations"].empty:
+            _display_recommendations(st.session_state["recommendations"])
         return
-
     try:
         profile = StudentProfile.from_mapping({
             "target_role": target_role,
@@ -209,7 +279,6 @@ def _render_recommendation(jobs: pd.DataFrame) -> None:
     except ValueError as exc:
         st.error(str(exc))
         return
-
     st.markdown("### 当前画像")
     st.json({
         "target_role": profile.target_role,
@@ -223,18 +292,20 @@ def _render_recommendation(jobs: pd.DataFrame) -> None:
         "expected_salary_min": profile.expected_salary_min,
         "expected_salary_max": profile.expected_salary_max,
     })
-
     st.markdown("### 推荐结果")
     try:
-        recommendations = recommend_jobs_multifactor(profile, jobs, top_k=5)
+        recommendations = analysis_service.recommend_jobs_multifactor(profile, jobs, top_k=5)
     except Exception as exc:
         st.error(f"推荐接口调用失败：{exc}")
         return
-
     if recommendations.empty:
         st.warning("没有生成推荐结果，请检查画像是否填写完整。")
         return
+    st.session_state["recommendations"] = recommendations
+    _display_recommendations(recommendations)
 
+
+def _display_recommendations(recommendations: pd.DataFrame) -> None:
     for _, row in recommendations.iterrows():
         with st.container(border=True):
             st.markdown(f"**{row['title']}** · {row['company']}")
@@ -269,7 +340,7 @@ def _render_collection(jobs: pd.DataFrame) -> None:
                 st.write(f"最大深度：{site.max_depth}")
                 st.write(f"开始时间：{site.start_at or '未设置'}")
                 st.write(f"频率：{site.frequency}")
-                col1, col2 = st.columns(2)
+                col1, col2, col3 = st.columns(3)
                 with col1:
                     if st.button("触发采集任务", key=f"trigger_{site.site_id}"):
                         try:
@@ -285,6 +356,47 @@ def _render_collection(jobs: pd.DataFrame) -> None:
                             st.success(f"站点已{action_label}")
                         except Exception as exc:
                             st.error(str(exc))
+                with col3:
+                    if st.button("删除", key=f"remove_{site.site_id}"):
+                        try:
+                            site_service.remove_site(site.site_id)
+                            st.success(f"已删除站点：{site.site_name}")
+                        except Exception as exc:
+                            st.error(str(exc))
+    st.markdown("### 修改网站配置")
+    site_ids = [site.site_id for site in site_service.list_sites()]
+    if site_ids:
+        edit_site_id = st.selectbox("选择要修改的站点", site_ids, key="edit_site_select")
+        edit_site = site_service.get_site(edit_site_id)
+        with st.form("edit_site_form"):
+            col1, col2 = st.columns(2)
+            with col1:
+                edit_site_name = st.text_input("站点名称", value=edit_site.site_name)
+                edit_base_url = st.text_input("Base URL", value=edit_site.base_url)
+                edit_keywords = st.text_input("关键词", value=",".join(edit_site.keywords))
+            with col2:
+                edit_cities = st.text_input("城市", value=",".join(edit_site.cities))
+                edit_strategy = st.selectbox("采集策略", ["bfs", "dfs"], index=0 if edit_site.crawl_strategy == "bfs" else 1)
+                edit_frequency = st.selectbox("频率", ["once", "daily", "twice_daily"], index=["once", "daily", "twice_daily"].index(edit_site.frequency) if edit_site.frequency in ["once", "daily", "twice_daily"] else 0)
+            edit_max_depth = st.number_input("最大深度", min_value=0, step=1, value=edit_site.max_depth)
+            edit_start_at = st.text_input("开始时间", value=edit_site.start_at)
+            edit_submitted = st.form_submit_button("保存修改")
+        if edit_submitted:
+            try:
+                site_service.update_site(edit_site_id, {
+                    "site_name": edit_site_name,
+                    "base_url": edit_base_url,
+                    "keywords": edit_keywords,
+                    "cities": edit_cities,
+                    "crawl_strategy": edit_strategy,
+                    "frequency": edit_frequency,
+                    "max_depth": edit_max_depth,
+                    "start_at": edit_start_at,
+                })
+                st.success(f"已保存站点修改：{edit_site_id}")
+            except Exception as exc:
+                st.error(str(exc))
+
     st.markdown("### 新增网站配置")
     with st.form("add_site_form"):
         col1, col2 = st.columns(2)
@@ -324,3 +436,6 @@ def _render_collection(jobs: pd.DataFrame) -> None:
         rows = [task.to_dict() for task in tasks]
         task_df = pd.DataFrame(rows)
         st.dataframe(task_df, use_container_width=True)
+
+
+

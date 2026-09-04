@@ -12,7 +12,7 @@ import os
 import pandas as pd
 
 from src.data.loader import load_jobs
-from src.data.schema import JOB_COLUMNS
+from src.data.schema import FILTER_KEYS, JOB_COLUMNS
 from src.services.job_service import filter_jobs, salary_distribution, summarize_jobs
 
 RUNTIME_PATH = "data/processed/jobs.csv"
@@ -41,14 +41,19 @@ def main() -> None:
     checks = [
         ("keyword=数据分析", {"keyword": "数据分析"}),
         ("city=上海", {"city": "上海"}),
+        ("work_type=全职", {"work_type": "全职"}),
         ("experience=3-5年", {"experience": "3-5年"}),
         ("education=本科", {"education": "本科"}),
         ("industry=互联网金融", {"industry": "互联网金融"}),
+        ("company_nature=民营", {"company_nature": "民营"}),
         ("salary_min=20000", {"salary_min": 20000}),
         ("salary_max=8000", {"salary_max": 8000}),
         ("组合=上海+本科+keyword=数据", {"city": "上海", "education": "本科", "keyword": "数据"}),
         ("无结果 keyword", {"keyword": "不存在的岗位xyz"}),
     ]
+    checked_keys = {key for _, filters in checks for key in filters}
+    assert checked_keys == set(FILTER_KEYS)
+    print("筛选键覆盖:", sorted(checked_keys))
     for label, filters in checks:
         print(f"{label}: {len(filter_jobs(jobs, filters))} 行")
     assert filter_jobs(jobs, {"keyword": "不存在的岗位xyz"}).empty

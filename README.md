@@ -19,7 +19,7 @@
 ```bash
 pip install -r requirements.txt
 
-# 首次运行准备本地清洗数据（数据文件不提交到仓库）
+# 没有真实清洗数据时，准备仓库内的可复现样例
 mkdir -p data/processed
 cp tests/fixtures/expanded_jobs.csv data/processed/jobs.csv
 python -c "import pandas as pd; jobs = pd.read_csv('data/processed/jobs.csv'); assert len(jobs) == 8608; print(f'prepared {len(jobs)} jobs')"
@@ -27,7 +27,7 @@ python -c "import pandas as pd; jobs = pd.read_csv('data/processed/jobs.csv'); a
 streamlit run app.py
 ```
 
-`app.py` 默认读取 `data/processed/jobs.csv`。该路径被 `.gitignore` 忽略，
-因此全新检出项目后需要先执行上述准备命令；准备完成后即可访问五个页面模块。
+- 启动前请准备 `data/processed/jobs.csv`；暂缺真实数据时执行上面的复制命令，将 `tests/fixtures/expanded_jobs.csv` 放到应用默认读取路径。该运行数据路径被 `.gitignore` 忽略，不会提交大体积数据。
+- 服务自检：`python -m tests.smoke`、`python -m tests.verify_real_data`；页面调用服务方式见 [docs/25051430/服务层调用说明.md](docs/25051430/服务层调用说明.md)。
 
 立项、调研和项目材料见 [`docs/25051408/`](docs/25051408/)，团队分工见 [`docs/团队/`](docs/团队/)，前端设计见 [`docs/团队/前端设计说明.md`](docs/团队/前端设计说明.md)，成员报告见 [`docs/成员报告/`](docs/成员报告/)，接口与采集说明见 [`docs/接口约定.md`](docs/接口约定.md)。

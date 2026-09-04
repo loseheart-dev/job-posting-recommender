@@ -17,7 +17,7 @@ from src.data.schema import COMPANY_PROFILE_COLUMNS
 
 
 def _most_common(series: pd.Series) -> str:
-    """取系列中出现次数最多的非空值；全为空返回空串。"""
+    """取系列中出现次数最多的非空值；全为空返回空串，不做推断。"""
     values = series.fillna("").astype(str).str.strip()
     values = values[values != ""]
     if values.empty:

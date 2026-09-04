@@ -60,6 +60,7 @@ def _factor_groups(
     temp["_valid"] = _valid_salary_mask(jobs, drop_abnormal)
     temp = temp[temp["_valid"]]
     temp[column] = temp[column].fillna("未知").astype(str).str.strip()
+    temp = temp[~temp[column].isin(("", "未知"))]
     grouped = temp.groupby(column, dropna=False)["_salary"]
     means = grouped.mean()
     counts = grouped.size()

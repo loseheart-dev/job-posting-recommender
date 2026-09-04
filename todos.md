@@ -29,7 +29,7 @@
 - [x] Z4 服务层测试 `test_site_task.py` 改写为 unittest，`unittest discover` 可自动发现
 - [x] Z5 数据读取/筛选/统计接入真实清洗数据（用真实 BOSS 清洗结果 `expanded_jobs.csv` 8608 条验证 load/filter/summarize/salary_distribution，含空数据/缺文件案例，脚本见 `tests/verify_real_data.py`）
 - [x] Z6 算法调用适配（郑维豪分析、丁伟哲推荐；`src/services/analysis_service.py` + `tests/test_analysis_service.py`，验证命令 `python -m unittest tests.test_analysis_service`；提交 `6dbd803`）
-- [ ] Z7 与王宇杰页面集中联调 + README 启动说明
+- [x] Z7 与王宇杰页面集中联调 + README 启动说明（README 启动说明与联调契约见 PR #30；页面五模块 AppTest 联调验证脚本 `tests/verify_app_integration.py`，服务 API 与页面调用一致，无异常）
 
 ## 郑维豪任务（25051413）
 

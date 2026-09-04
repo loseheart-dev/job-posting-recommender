@@ -40,3 +40,5 @@ jobs:
 
       - name: Algorithm acceptance test
         run: python -m tests.test_algorithms
+      - name: Page integration test
+        run: python -m tests.verify_app_integration

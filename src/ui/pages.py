@@ -2,6 +2,10 @@
 import plotly.express as px
 import streamlit as st
 
+from src.algorithms.company_profile import build_company_profiles
+from src.algorithms.recommender import recommend_jobs_multifactor
+from src.algorithms.salary import analyze_salary_factors, predict_salary
+from src.algorithms.skill_graph import build_skill_graph
 from src.data.schema import StudentProfile
 from src.services import site_service, task_service
 from src.services.job_service import filter_jobs, salary_distribution, summarize_jobs
@@ -116,32 +120,55 @@ def _render_analysis(jobs: pd.DataFrame) -> None:
     st.markdown("### 薪资分布")
     try:
         buckets = salary_distribution(jobs)
+        if buckets:
+            dist_df = pd.DataFrame(buckets).sort_values("min").reset_index(drop=True)
+            dist_df["区间"] = dist_df["range"]
+            fig = px.bar(
+                dist_df,
+                x="区间",
+                y="count",
+                labels={"区间": "薪资区间（元/月）", "count": "岗位数量"},
+                title="薪资分布",
+            )
+            fig.update_layout(xaxis_tickangle=-45)
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("暂无有效薪资数据，无法绘制薪资分布。")
     except ValueError as exc:
         st.error(str(exc))
-        buckets = []
-    if buckets:
-        dist_df = pd.DataFrame(buckets)
-        dist_df = dist_df.sort_values("min").reset_index(drop=True)
-        dist_df["区间"] = dist_df["range"]
-        fig = px.bar(
-            dist_df,
-            x="区间",
-            y="count",
-            labels={"区间": "薪资区间（元/月）", "count": "岗位数量"},
-            title="薪资分布",
-        )
-        fig.update_layout(xaxis_tickangle=-45)
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("暂无有效薪资数据，无法绘制薪资分布。")
     st.markdown("### 薪资影响因素")
-    st.info("等待郑维豪提供薪资因素分析接口后展示。")
+    try:
+        salary_factors = analyze_salary_factors(jobs)
+        st.dataframe(salary_factors, use_container_width=True)
+    except Exception as exc:
+        st.warning(f"薪资因素分析不可用：{exc}")
     st.markdown("### 岗位能力需求图谱")
-    st.info("等待郑维豪提供能力需求图谱接口后展示。")
+    try:
+        skill_graph = build_skill_graph(jobs)
+        freq = skill_graph["skill_frequency"][:15]
+        if freq:
+            freq_df = pd.DataFrame(freq, columns=["技能", "出现次数"])
+            fig = px.bar(freq_df, x="技能", y="出现次数", title="高频技能 Top 15")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("暂无技能数据")
+    except Exception as exc:
+        st.warning(f"能力需求图谱不可用：{exc}")
     st.markdown("### 招聘企业画像")
-    st.info("等待郑维豪提供企业画像接口后展示。")
-    st.markdown("### 岗位聚类")
-    st.info("等待郑维豪提供 KMeans 聚类接口后展示。")
+    try:
+        company_profiles = build_company_profiles(jobs)
+        st.dataframe(company_profiles.head(20), use_container_width=True)
+    except Exception as exc:
+        st.warning(f"企业画像不可用：{exc}")
+    st.markdown("### 薪资预测模型评估")
+    try:
+        _, metrics = predict_salary(jobs)
+        col1, col2 = st.columns(2)
+        col1.metric("MAE", metrics["mae"])
+        col2.metric("R²", metrics["r2"])
+        st.caption("随机森林模型在独立测试集上的评估指标。")
+    except Exception as exc:
+        st.warning(f"薪资预测不可用：{exc}")
 
 
 def _render_recommendation(jobs: pd.DataFrame) -> None:
@@ -165,6 +192,7 @@ def _render_recommendation(jobs: pd.DataFrame) -> None:
     if not submitted:
         st.info("填写学生画像后点击“生成推荐”。")
         return
+
     try:
         profile = StudentProfile.from_mapping({
             "target_role": target_role,
@@ -181,7 +209,7 @@ def _render_recommendation(jobs: pd.DataFrame) -> None:
     except ValueError as exc:
         st.error(str(exc))
         return
-    st.success("画像已生成，等待丁伟哲提供多因素推荐接口后展示推荐结果。")
+
     st.markdown("### 当前画像")
     st.json({
         "target_role": profile.target_role,
@@ -195,6 +223,29 @@ def _render_recommendation(jobs: pd.DataFrame) -> None:
         "expected_salary_min": profile.expected_salary_min,
         "expected_salary_max": profile.expected_salary_max,
     })
+
+    st.markdown("### 推荐结果")
+    try:
+        recommendations = recommend_jobs_multifactor(profile, jobs, top_k=5)
+    except Exception as exc:
+        st.error(f"推荐接口调用失败：{exc}")
+        return
+
+    if recommendations.empty:
+        st.warning("没有生成推荐结果，请检查画像是否填写完整。")
+        return
+
+    for _, row in recommendations.iterrows():
+        with st.container(border=True):
+            st.markdown(f"**{row['title']}** · {row['company']}")
+            st.write(f"公司规模：{row['company_size'] or '未知'}")
+            st.write(f"公司性质：{row['company_nature'] or '未知'}")
+            st.write(f"行业：{row['industry'] or '未知'}")
+            st.write(f"薪资区间：{row['salary_range'] or '未知'}")
+            st.write(f"匹配概率：{row['match_probability']:.1%}")
+            st.write(f"匹配技能：{row['matched_skills'] or '无'}")
+            st.write(f"缺失技能：{row['missing_skills'] or '无'}")
+            st.write(f"推荐理由：{row['reason']}")
 
 
 def _render_collection(jobs: pd.DataFrame) -> None:

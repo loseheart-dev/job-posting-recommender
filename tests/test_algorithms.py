@@ -180,6 +180,38 @@ def test_skill_noise_filter() -> None:
     # known_only=False 仍可拿到原始拆分（供需要原始文本的场景）
     raw = split_skills("Python;非外包类", known_only=False)
     check("known_only=False 返回原始拆分", raw == ["Python", "非外包类"], str(raw))
+def test_algorithm_fallbacks() -> None:
+    print("[8/8] 算法层兜底功能案例")
+    from src.algorithms._common import flag_abnormal_salary, split_skills
+    # 1) 异常薪资标记：时薪未折算（12.5）视为异常，正常薪资与缺失不标
+    jobs = build_sample_frame().copy()
+    jobs["salary_avg"] = jobs["salary_avg"].astype(float)
+    jobs.loc[0, "salary_avg"] = 12.5  # “5-20元/时”未折算
+    jobs.loc[1, "salary_avg"] = None
+    flags = flag_abnormal_salary(jobs)
+    check("时薪未折算被标记为异常", bool(flags.iloc[0]))
+    check("正常薪资不标记", not flags.drop(0).any())
+    # 2) 薪资预测返回 salary_abnormal 标记列
+    predicted, metrics = predict_salary(jobs)
+    check("预测返回 salary_abnormal 列", "salary_abnormal" in predicted.columns)
+    check("异常行标记为 True", bool(predicted.loc[0, "salary_abnormal"]))
+    check("剔除异常后指标有效", metrics["mae"] >= 0 and pd.notna(metrics["r2"]))
+    # 3) 因素分析剔除异常低值：整体均值不含 12.5 污染
+    factors = analyze_salary_factors(jobs)
+    check("因素分析剔除异常后可运行", not factors.empty)
+    # 4) 公司性质全缺失 → 企业画像输出“未知”
+    no_nature = build_sample_frame().copy()
+    no_nature["company_nature"] = ""
+    profiles = build_company_profiles(no_nature)
+    check("公司性质缺失输出未知", (profiles["company_nature"] == "未知").all())
+    # 5) 白名单技能不进入企业画像技能摘要（字节跳动样例）
+    node_jobs = build_sample_frame().copy()
+    node_jobs["company"] = "兜底测试公司"
+    node_jobs.loc[0, "skills"] = "Python;要求数据开发经验;非外包类"
+    profiles2 = build_company_profiles(node_jobs)
+    summary = profiles2.iloc[0]["skill_summary"]
+    check("企业画像技能摘要不含噪声词", "要求数据开发经验" not in summary and "非外包类" not in summary)
+    check("企业画像技能摘要保留真实技能", "Python" in summary)
 
 def main() -> None:
     print("郑维豪算法模块验收测试\n")
@@ -190,6 +222,7 @@ def main() -> None:
     test_optional_columns_degradation()
     test_experience_mapping()
     test_skill_noise_filter()
+    test_algorithm_fallbacks()
     print(f"\n结果: {PASS} 通过, {FAIL} 失败")
     if FAIL:
         raise SystemExit(1)

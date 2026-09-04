@@ -1,6 +1,9 @@
 import unittest
 
+import pandas as pd
+
 from src.ui.pages import ABOUT_URL, _format_salary_summary, _format_skill_summary, _is_about_page_url
+from src.ui.pages import _compact_salary_distribution, _tokens
 
 
 class UiFormattingTest(unittest.TestCase):
@@ -18,6 +21,23 @@ class UiFormattingTest(unittest.TestCase):
         self.assertTrue(_is_about_page_url("http://localhost:8501/about.html"))
         self.assertFalse(_is_about_page_url("http://localhost:8501/"))
         self.assertEqual(ABOUT_URL, "/about.html")
+
+
+class UiPagesTest(unittest.TestCase):
+    def test_missing_tokens_are_hidden(self) -> None:
+        self.assertEqual(_tokens(float("nan")), [])
+
+    def test_high_salary_buckets_are_compacted(self) -> None:
+        source = pd.DataFrame([
+            {"min": 35_000, "max": 40_000, "range": "35000-40000", "count": 8},
+            {"min": 40_000, "max": 45_000, "range": "40000-45000", "count": 2},
+            {"min": 80_000, "max": 85_000, "range": "80000-85000", "count": 1},
+        ])
+        result = _compact_salary_distribution(source)
+        self.assertEqual(result[["range", "count"]].to_dict("records"), [
+            {"range": "35000-40000", "count": 8},
+            {"range": "40000+", "count": 3},
+        ])
 
 
 if __name__ == "__main__":

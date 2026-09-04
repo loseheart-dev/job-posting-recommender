@@ -1,4 +1,5 @@
 ﻿import pandas as pd
+import plotly.express as px
 import streamlit as st
 
 from src.data.schema import StudentProfile
@@ -120,8 +121,17 @@ def _render_analysis(jobs: pd.DataFrame) -> None:
         buckets = []
     if buckets:
         dist_df = pd.DataFrame(buckets)
+        dist_df = dist_df.sort_values("min").reset_index(drop=True)
         dist_df["区间"] = dist_df["range"]
-        st.bar_chart(dist_df.set_index("区间")["count"])
+        fig = px.bar(
+            dist_df,
+            x="区间",
+            y="count",
+            labels={"区间": "薪资区间（元/月）", "count": "岗位数量"},
+            title="薪资分布",
+        )
+        fig.update_layout(xaxis_tickangle=-45)
+        st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("暂无有效薪资数据，无法绘制薪资分布。")
     st.markdown("### 薪资影响因素")
@@ -189,16 +199,12 @@ def _render_recommendation(jobs: pd.DataFrame) -> None:
 
 def _render_collection(jobs: pd.DataFrame) -> None:
     st.subheader("采集管理")
-
-    # 确保默认站点存在
     try:
         site_service.ensure_default_site()
-    except Exception as exc:  # 页面不应因服务初始化失败整体崩溃
+    except Exception as exc:
         st.error(f"站点初始化失败: {exc}")
         return
-
     sites = site_service.list_sites()
-
     st.markdown("### 网站配置")
     if not sites:
         st.info("暂无网站配置")
@@ -212,13 +218,53 @@ def _render_collection(jobs: pd.DataFrame) -> None:
                 st.write(f"最大深度：{site.max_depth}")
                 st.write(f"开始时间：{site.start_at or '未设置'}")
                 st.write(f"频率：{site.frequency}")
-                if st.button("触发采集任务", key=f"trigger_{site.site_id}"):
-                    try:
-                        task = task_service.trigger_task(site.site_id)
-                        st.success(f"已创建任务：{task.task_id}")
-                    except Exception as exc:
-                        st.error(str(exc))
-
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("触发采集任务", key=f"trigger_{site.site_id}"):
+                        try:
+                            task = task_service.trigger_task(site.site_id)
+                            st.success(f"已创建任务：{task.task_id}")
+                        except Exception as exc:
+                            st.error(str(exc))
+                with col2:
+                    action_label = "停用" if site.enabled else "启用"
+                    if st.button(action_label, key=f"toggle_{site.site_id}"):
+                        try:
+                            site_service.set_site_enabled(site.site_id, not site.enabled)
+                            st.success(f"站点已{action_label}")
+                        except Exception as exc:
+                            st.error(str(exc))
+    st.markdown("### 新增网站配置")
+    with st.form("add_site_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            new_site_id = st.text_input("站点 ID", placeholder="如：zhilian_zhaopin")
+            new_site_name = st.text_input("站点名称", placeholder="如：智联招聘")
+            new_base_url = st.text_input("Base URL", placeholder="如：https://www.zhaopin.com")
+        with col2:
+            new_keywords = st.text_input("关键词", placeholder="逗号分隔，如：大数据,数据分析")
+            new_cities = st.text_input("城市", placeholder="逗号分隔，如：杭州,上海")
+            new_strategy = st.selectbox("采集策略", ["bfs", "dfs"])
+            new_frequency = st.selectbox("频率", ["once", "daily", "twice_daily"])
+        new_max_depth = st.number_input("最大深度", min_value=0, step=1, value=1)
+        new_start_at = st.text_input("开始时间", placeholder="ISO 格式，如：2026-09-04T08:00:00")
+        submitted = st.form_submit_button("新增站点")
+    if submitted:
+        try:
+            site_service.add_site({
+                "site_id": new_site_id,
+                "site_name": new_site_name,
+                "base_url": new_base_url,
+                "keywords": new_keywords,
+                "cities": new_cities,
+                "crawl_strategy": new_strategy,
+                "start_at": new_start_at,
+                "frequency": new_frequency,
+                "max_depth": new_max_depth,
+            })
+            st.success(f"已新增站点：{new_site_name}")
+        except Exception as exc:
+            st.error(str(exc))
     st.markdown("### 采集任务记录")
     tasks = task_service.list_tasks()
     if not tasks:

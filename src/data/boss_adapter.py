@@ -10,7 +10,7 @@ import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Literal
 
 from src.data.schema import JOB_COLUMNS
 
@@ -19,6 +19,17 @@ UPSTREAM_REPOSITORY = "https://github.com/eatmoreduck/boss-zhipin-scraper"
 UPSTREAM_VERSION = "v2.2.0"
 UPSTREAM_COMMIT = "2bc40f56a3ca3249ce3b98cdda0187e0bd612aa5"
 BOSS_SOURCE = "BOSS直聘"
+
+SalaryUnit = Literal[
+    "month",
+    "hour",
+    "day",
+    "week",
+    "year",
+    "piece",
+    "negotiable",
+    "unknown",
+]
 
 
 def utc_now() -> str:
@@ -217,22 +228,69 @@ def normalize_delimited(value: Any) -> str:
     return ";".join(seen)
 
 
-def parse_salary(text: Any) -> tuple[float | None, float | None, float | None]:
-    """解析 BOSS 月薪或日薪文本，结果统一为人民币元/月。"""
+_NON_SKILL_RE = re.compile(r"经验$|专业$|外包|居家办公")
 
-    salary_text = _text(text).replace(" ", "")
-    numbers = [float(item) for item in re.findall(r"\d+(?:\.\d+)?", salary_text)]
-    if not numbers:
+
+def normalize_skills(value: Any) -> str:
+    """统一技能分隔符，并去除明显的岗位要求或办公条件文本。"""
+
+    return ";".join(
+        part for part in _split_values(value) if not _NON_SKILL_RE.search(part)
+    )
+
+
+def detect_salary_unit(value: Any) -> SalaryUnit:
+    """识别薪资周期，只识别原文单位，不推断实际工时。"""
+
+    salary_text = re.sub(r"\s+", "", _text(value)).replace(",", "")
+    if not salary_text or "面议" in salary_text:
+        return "negotiable"
+    if re.search(r"(?:元|万)/年|年薪", salary_text):
+        return "year"
+    if re.search(r"元/(?:时|小时)", salary_text):
+        return "hour"
+    if re.search(r"元/(?:天|日)", salary_text):
+        return "day"
+    if re.search(r"元/周", salary_text):
+        return "week"
+    if re.search(r"元/(?:次|单)", salary_text):
+        return "piece"
+    if re.search(r"元/月", salary_text) or re.search(r"[Kk千]", salary_text) or "万" in salary_text:
+        return "month"
+    return "unknown"
+
+
+def parse_salary(text: Any) -> tuple[float | None, float | None, float | None]:
+    """只解析可确认的人民币月薪，非月薪或单位不明时返回空值。"""
+
+    salary_text = re.sub(r"\s+", "", _text(text)).replace(",", "")
+    if detect_salary_unit(salary_text) != "month":
         return None, None, None
-    values = numbers[:2]
-    if "元/天" in salary_text or "元/日" in salary_text:
-        values = [value * 21.75 for value in values]
-    elif "万" in salary_text and not re.search(r"[Kk千]", salary_text):
-        values = [value * 10000 for value in values]
-    elif re.search(r"[Kk千]", salary_text):
-        values = [value * 1000 for value in values]
-    lower, upper = min(values), max(values)
-    return lower, upper, (lower + upper) / 2
+
+    # “13薪/15薪”是年度发薪月数，不是薪资区间的第二个数字。
+    core = re.split(r"[·xX*]?\d{1,2}薪", salary_text, maxsplit=1)[0]
+    match = re.search(
+        r"(?P<low>\d+(?:\.\d+)?)"
+        r"(?:[-~～—–至](?P<high>\d+(?:\.\d+)?))?",
+        core,
+    )
+    if not match:
+        return None, None, None
+
+    low = float(match.group("low"))
+    high = float(match.group("high") or match.group("low"))
+    if re.search(r"[Kk千]", core):
+        multiplier = 1000.0
+    elif "万" in core:
+        multiplier = 10000.0
+    elif re.search(r"元/月", core):
+        multiplier = 1.0
+    else:
+        return None, None, None
+
+    minimum = min(low, high) * multiplier
+    maximum = max(low, high) * multiplier
+    return minimum, maximum, (minimum + maximum) / 2
 
 
 def _location_city(value: Any) -> str:
@@ -301,7 +359,7 @@ def map_boss_records(
                 "work_type": work_type,
                 "experience": experience,
                 "education": education,
-                "skills": normalize_delimited(raw.get("skills") or detail.get("skill_tags")),
+                "skills": normalize_skills(raw.get("skills") or detail.get("skill_tags")),
                 "description": _text(raw.get("description") or detail.get("jd")),
                 "benefits": normalize_delimited(raw.get("welfare") or raw.get("benefits")),
                 "salary_text": salary_text,

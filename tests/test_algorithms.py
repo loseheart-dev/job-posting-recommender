@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from src.algorithms._common import experience_years, validate_jobs
+from src.algorithms._common import experience_years, split_skills, validate_jobs
 from src.algorithms.clustering import cluster_jobs
 from src.algorithms.company_profile import build_company_profiles
 from src.algorithms.salary import analyze_salary_factors, predict_salary
@@ -73,6 +73,10 @@ def test_normal() -> None:
     check("技能频率非空", len(graph["skill_frequency"]) > 0)
     check("节点与频率一致", len(graph["nodes"]) == len(graph["skill_frequency"]))
     check("共现边权重为正", all(edge["weight"] > 0 for edge in graph["edges"]))
+    check(
+        "技能图谱过滤岗位要求文本",
+        split_skills("Python;要求数据开发经验;非外包类;计算机相关专业") == ["Python"],
+    )
 
     profiles = build_company_profiles(jobs)
     check("企业画像返回 6 个约定列", list(profiles.columns) == ["company", "company_size", "company_nature", "industry", "salary_summary", "skill_summary"])
@@ -147,6 +151,7 @@ def test_optional_columns_degradation() -> None:
     profiles = build_company_profiles(core)
     check("仅核心字段-企业画像可运行", not profiles.empty)
     check("仅核心字段-企业画像可选字段为空", (profiles["company_size"] == "").all())
+    check("仅核心字段-企业画像公司性质未知", (profiles["company_nature"] == "未知").all())
 
     minimal = full.loc[:, ["job_id", "title", "skills", "salary_avg"]]
     clustered_minimal, _ = cluster_jobs(minimal, n_clusters=3)
@@ -209,6 +214,10 @@ def test_algorithm_fallbacks() -> None:
     no_nature["company_nature"] = ""
     profiles = build_company_profiles(no_nature)
     check("公司性质缺失输出未知", (profiles["company_nature"] == "未知").all())
+    partial_nature = build_sample_frame().copy()
+    partial_nature.loc[0, "company_nature"] = ""
+    partial_factors = analyze_salary_factors(partial_nature)
+    check("部分公司性质缺失不生成未知因子", not partial_factors["factor"].str.endswith("-未知").any())
     # 5) 白名单技能不进入企业画像技能摘要（字节跳动样例）
     node_jobs = build_sample_frame().copy()
     node_jobs["company"] = "兜底测试公司"

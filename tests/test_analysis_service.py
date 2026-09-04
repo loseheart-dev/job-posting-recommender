@@ -102,6 +102,17 @@ class AnalysisServiceNormalTest(unittest.TestCase):
         self.assertEqual(list(out.columns), list(MULTI_FACTOR_RECOMMENDATION_COLUMNS))
         self.assertLessEqual(len(out), 5)
 
+    def test_recommend_empty_data_returns_empty_by_contract(self):
+        # 推荐函数遵循冻结契约：空表/空画像时返回空结果表（不抛错），页面按"无推荐结果"处理。
+        empty = _empty_jobs()
+        profile = {"target_role": "数据分析", "skills": "Python"}
+        out = recommend_jobs(profile, empty)
+        self.assertTrue(out.empty)
+        self.assertEqual(list(out.columns), list(RECOMMENDATION_COLUMNS))
+        out2 = recommend_jobs_multifactor(profile, empty)
+        self.assertTrue(out2.empty)
+        self.assertEqual(list(out2.columns), list(MULTI_FACTOR_RECOMMENDATION_COLUMNS))
+
 
 class AnalysisServiceAbnormalTest(unittest.TestCase):
     def test_empty_data_raises_for_analysis(self):
@@ -120,16 +131,6 @@ class AnalysisServiceAbnormalTest(unittest.TestCase):
         few = _sample_jobs(size=3)  # 薪资样本不足（<6）
         with self.assertRaises(ValueError):
             salary_prediction(few)
-
-    def test_empty_data_recommend_returns_empty(self):
-        empty = _empty_jobs()
-        profile = {"target_role": "数据分析", "skills": "Python"}
-        out = recommend_jobs(profile, empty)
-        self.assertTrue(out.empty)
-        self.assertEqual(list(out.columns), list(RECOMMENDATION_COLUMNS))
-        out2 = recommend_jobs_multifactor(profile, empty)
-        self.assertTrue(out2.empty)
-        self.assertEqual(list(out2.columns), list(MULTI_FACTOR_RECOMMENDATION_COLUMNS))
 
 
 if __name__ == "__main__":

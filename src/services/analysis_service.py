@@ -2,8 +2,13 @@
 
 把郑维豪的三类分析/KMeans/随机森林与丁伟哲的推荐封装为页面可统一调用的服务函数，
 保证页面不直接读取原始数据、不重复写模型逻辑。算法输出结构与《docs/接口约定.md》
-第 6 节一致；空数据/缺字段/样本不足等异常由算法抛出明确中文错误，适配层只补充
-空表前置检查，不吞掉异常。
+第 6 节一致。
+
+空数据契约：
+- 分析类函数（salary_factor_analysis / salary_prediction / job_cluster / skill_graph /
+  company_profile）：空表时抛出明确中文 ValueError（空表前置检查 + 算法自身校验透传）；
+- 推荐类函数（recommend_jobs / recommend_jobs_multifactor）：遵循丁伟哲推荐冻结契约，
+  岗位表为空或画像无内容时返回空结果表（不抛错），页面按"无推荐结果"处理。
 
 页面统一调用方式：先用 ``load_jobs`` / ``filter_jobs`` 得到标准岗位表，再调用本模块函数。
 """
@@ -77,7 +82,10 @@ def recommend_jobs(
     jobs: pd.DataFrame,
     top_k: int = 5,
 ) -> pd.DataFrame:
-    """TF-IDF 岗位推荐（丁伟哲）。返回 ``RECOMMENDATION_COLUMNS`` 标准列。"""
+    """TF-IDF 岗位推荐（丁伟哲）。返回 ``RECOMMENDATION_COLUMNS`` 标准列。
+
+    岗位表为空或画像无内容时返回空结果表（遵循丁伟哲推荐冻结契约，不抛错）。
+    """
     return _recommender.recommend_jobs(_as_profile(profile), jobs, top_k=top_k)
 
 
@@ -86,6 +94,9 @@ def recommend_jobs_multifactor(
     jobs: pd.DataFrame,
     top_k: int = 5,
 ) -> pd.DataFrame:
-    """多因素岗位推荐（丁伟哲，页面主用）。返回 ``MULTI_FACTOR_RECOMMENDATION_COLUMNS`` 标准列。"""
+    """多因素岗位推荐（丁伟哲，页面主用）。返回 ``MULTI_FACTOR_RECOMMENDATION_COLUMNS`` 标准列。
+
+    岗位表为空或画像无内容时返回空结果表（遵循丁伟哲推荐冻结契约，不抛错）。
+    """
     return _recommender.recommend_jobs_multifactor(_as_profile(profile), jobs, top_k=top_k)
 

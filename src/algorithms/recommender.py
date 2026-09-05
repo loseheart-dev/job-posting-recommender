@@ -63,9 +63,12 @@ def _multifactor_jobs(jobs: pd.DataFrame) -> pd.DataFrame:
 
 
 def _job_texts(jobs: pd.DataFrame) -> list[str]:
-    """岗位侧 TF-IDF 文本：标题、技能、描述、公司。"""
+    """岗位侧 TF-IDF 文本：标题、技能、描述、公司；缺列按空处理。"""
     columns = ["title", "skills", "description", "company"]
-    return [" ".join(_text(value) for value in row) for row in jobs[columns].fillna("").values.tolist()]
+    texts: list[str] = []
+    for row in jobs.itertuples(index=False):
+        texts.append(" ".join(_text(getattr(row, column, "")) for column in columns))
+    return texts
 
 
 def _profile_text(profile: StudentProfile) -> str:
@@ -330,10 +333,10 @@ def recommend_jobs_multifactor(
         matched = sorted(profile_skills & job_skills)
         missing_skills = sorted(job_skills - profile_skills)
         skill_score = _skill_match_score(profile_skills, job_skills, set(matched))
-        city_ok = bool(profile.preferred_city) and profile.preferred_city.lower() in _text(row.city).lower()
-        experience_ok = bool(profile.experience) and profile.experience.lower() in _text(row.experience).lower()
-        education_ok = bool(profile.education) and profile.education.lower() in _text(row.education).lower()
-        searchable = " ".join(_text(value) for value in (row.title, row.skills, row.description, row.company)).lower()
+        city_ok = bool(profile.preferred_city) and profile.preferred_city.lower() in _text(getattr(row, "city", "")).lower()
+        experience_ok = bool(profile.experience) and profile.experience.lower() in _text(getattr(row, "experience", "")).lower()
+        education_ok = bool(profile.education) and profile.education.lower() in _text(getattr(row, "education", "")).lower()
+        searchable = " ".join(_text(getattr(row, column, "")) for column in ("title", "skills", "description", "company")).lower()
         major_ok = bool(profile.major) and profile.major.lower() in searchable
         similarity = float(similarities[index]) if similarities is not None else 0.0
         salary_ok = _salary_overlap(profile.expected_salary_min, profile.expected_salary_max, row.salary_min, row.salary_max)

@@ -1,0 +1,196 @@
+# D4 Claude Code 用户提示词记录(仅用户输入,不含 AI 回复)
+
+> 覆盖归档:跨日主会话 31222aea-387c-49f6-9d48-fdb0c1b53381(2026-09-04 项目相关消息均出自该会话;当日另有另行实测会话,其输出由用户粘贴转述,见提示词 11、13、14)。
+> 提取范围:2026-09-03T12:26:34Z(9/3 最后一条提示词)之后至 2026-09-04T13:36:11.404Z(本地 21:36:11),共 15 条。
+> 提取方法:扫描会话归档中全部 type=user 文本消息,按原始时间排序;排除工具结果(tool_result)、bash-input/bash-stdout 回显、会话压缩摘要注入(2026-09-04T02:09:16Z 一条)与工具中断标记(03:38:35Z 一条);相同时间戳和正文才视为重复。
+> 说明:2026-09-04 为项目第 4 天,本人 D4 任务为 8608 条真实数据推荐验证与联调证据补充;提示词 6 开头夹带表格边线为用户复制残留,按原文收录;提示词 12、14 为用户粘贴的实测会话输出(验证 Claude Code 是否原生读取 AGENTS.md),按原文收录。
+
+## 提示词 1
+
+测试数据在
+tests/fixtures/expanded_jobs.csv
+tests/fixtures/expanded_jobs_metadata.json
+tests/fixtures/README.md待完成任务:用8608条真实数据验证推荐结果;确认与徐挚凌服务接口、王宇杰页面的调用格式;补充真实运行结果和联调证
+据。
+
+## 提示词 2
+
+查看并简述PR #26内容
+
+## 提示词 3
+
+如何执行review?点击merge pull request吗?
+
+## 提示词 4
+
+运行验证并给出结论
+
+## 提示词 5
+
+检查今天的全部任务,用列表说明有哪些完成了,哪些有待完成
+
+## 提示词 6
+
+发现:main 的 AGENTS.md 已被 f37c96a(9/3 23:40)改动——删除了第 7 条、新增"大文件拆分                                                │
+  │     │                                  │ PR"条款,我的本地副本已落后,应立即按字节重新拷贝(现在做最合适,也符合"开始新任务前同步"
+开始同步CLAUDE.md
+
+## 提示词 7
+
+为什么要分CLAUDE.md和AGENT.md两个不同的文件
+
+## 提示词 8
+
+可以在CLAUDE.md里直接指向AGENT.md,从而节省token吗
+
+## 提示词 9
+
+每次AGENT.md改动,都需要同步一次,这难道不费token吗
+
+## 提示词 10
+
+所以同步AGENT.md到CLAUDE.md本身不费几个token,且同步频率并不高,而如果在CLADUE.md里写读取AGENT.md,一是有忘记的风险,二是会多进行一次工具调用,并不省多少token,反而冒着更大的风险,真正能解决问题的方案是如果版本支持,让CLAUDEcode直接读取AGENT.md,是这个意思吗
+
+## 提示词 11
+
+这个路径实际是项目目录而非单个文件,其中并没有 CLAUDE.md,规范写在根目录的 AGENTS.md(即《项目协作规则》,与团队成员和 AI
+  Agent 共用,共 6 节)。另外还有一份 NO-CLAUDE.md(今天 11:06 新建、尚未提交到 git,git status 显示为未跟踪文件),内容与
+  AGENTS.md 完全相同——两个文件文字一致,差异仅在换行符(CRLF vs LF)。
+
+  当前生效的项目规范(6 节概述)
+
+  1. 开工前:先读本文件及《五人任务分工与验收清单》;只做自己负责的任务,不顺手重构/改名/换技术栈;不确定的需求写成"待确认";
+     优先复用已有代码。
+  2. Git 提交规范:main 只放可运行版本;个人分支 feat/<姓名>-<任务简称> / fix/<姓名>-<问题简称>;提交信息格式 类型:
+     简短说明(feat/fix/docs/refactor/test/chore);一次提交只做一件事;大体积测试数据与 daily/、prompts/
+     课程记录必须用不同分支、不同 PR。
+  3. 每日过程记录:当天开发当天提交、核对 git config user.name;成员目录用学号;按 prompts/<学号>/D<n>/
+     导出每日对话文本(需以昨日最后一条时间戳为下界扫描全部会话);每天 22:00 前按固定模板提交日报到
+     daily/<学号>/;期末材料按学号存 docs/<学号>/(立项/调研/项目报告.md)。
+  4. AI Agent 使用规则:AI 代码须由负责人运行并现场解释;任务须含目标/输入/输出/限制/验收方式;AI 改后先看 git diff
+     确认无越界改动;不伪造结果、不提交密钥;不因 AI 建议随意加依赖/改结构/大重写。
+  5. 统一验收标准(见下)。
+  6. 遇到阻塞:不伪造数据或把失败写成成功;把"已尝试什么/具体错误/下一步需要谁做什么"发群并写入任务清单;方案不可控时保留可
+     运行的最小版本。
+
+  第 5 节「统一验收标准」原文内容
+
+  一个任务只有同时满足以下 6 个条件,才可以标记为完成:
+
+  1. 输入和输出明确,功能能够实际运行;
+  2. 至少有一个正常案例和一个异常/空数据案例;
+  3. 负责人能说明核心代码、数据来源和主要取舍;
+  4. 有最小验证证据:命令输出、页面截图或可重复的演示步骤;
+  5. 代码已提交到个人分支,且没有混入无关修改;
+  6. 由组长或指定验收人确认后再合并到 main。
+
+  ⚠️ 提醒一句:NO-CLAUDE.md 目前是未提交的新文件——如果它是你刚为了适配其他工具而复制的副本,记得按第 2
+  节规范提交;另外规范第 2 节要求课程记录类改动走独立分支/PR,如果这份副本和 AGENTS.md
+  只需要留一份,也建议先和组内确认归属这个回答是否说明 原生支持 AGENTS.md?
+
+## 提示词 12
+
+NO-CLAUDE.md就是原来的CLAUDE.md改名
+
+## 提示词 13
+
+已读取项目目录并检索了全部 git 历史。结论如下：
+
+  条款定位
+
+  该条款位于 AGENTS.md 第 2 节「Git 提交规范」→「分支」小节,即文件第 19
+  行。全仓库（含全部历史版本）中"大文件拆分"相关的规范只有这一条,历史上经 3 个提交反复（05c03f1 固化添加 → 0f0619d 删除
+  → f37c96a 修正加回,现 HEAD 保留）,三个版本文字完全一致。
+
+  完整原文（一字不差）
+
+  ▎ 大体积测试数据（如 tests/fixtures/expanded_jobs.csv）与 daily/、prompts/ 课程记录必须使用不同分支、不同
+  ▎ PR；仅拆成多个 commit 仍可能造成 PR diff 过大。
+
+  条款含义
+
+  - 拆分对象：大体积测试数据（典型即 tests/fixtures/expanded_jobs.csv）和课程过程记录（daily/ 日报、prompts/
+    提示词导出）这类文件;
+  - 拆分方式：必须放到与功能代码不同的分支、不同的 PR 中提交;
+  - 约束点：单纯在同一分支内拆成多个 commit 不算拆分——因为 PR 的 diff 是合并后相对 base 的全部变更,大文件只要进了同一
+    PR,无论拆多少 commit,diff 体积依然过大;
+  - 目的：控制 PR diff 规模,避免 8000+ 行的真实采集数据（expanded_jobs.csv）或大段提示词文本淹没代码评审。
+
+  它与第 2 节上下文里"每项任务完成后单独合并、不在 main 堆未完成代码"的分支纪律是一体的。
+接口约定.md 的第 2 节讲的是岗位数据表，不含"大文件拆分"内容。让我在团队文档里找包含编号条款的文档。
+
+  Thought for 6s, searched for 2 patterns, listed 1 directory (ctrl+o to expand)
+
+● 本地文档中还没找到该条款。让我检查其余可疑文件。
+
+● Bash(cd "C:\Users\silen\OneDrive\新建文件夹\job-posting-recommender" && grep -rn "大文件\|第2节\|第 2 节"
+      --include="*.py" --include="*.md" --include="*.txt" . 2>/dev/null | gre…)
+  ⎿  ./docs/团队/五人任务分工与验收清单.md:183:- [ ] 没有密钥、Cookie、个人信息和无关大文件。
+     ./src/data/schema.py:5:# 与《docs/接口约定.md》第 2 节“岗位数据表 data/processed/jobs.csv”保持一致。
+
+● Bash(cd "C:\Users\silen\OneDrive\新建文件夹\job-posting-recommender" && grep -rn "拆分" daily/25051408/D1.md AGENTS.md
+      todos.md 2>/dev/null | head -20)
+  ⎿  daily/25051408/D1.md:28:- 项目需求、岗位分工和接口约定在开发中多次调整，已集中更新文档并按模块拆分任务，减少后
+     续联调耦合。
+
+  Thought for 9s, read 1 file (ctrl+o to expand)
+
+● Bash(cd "C:\Users\silen\OneDrive\新建文件夹\job-posting-recommender" && git log --oneline -20 && echo --- && git log
+      --all --oneline --diff-filter=D --name-only | grep -i…)
+  ⎿  025b08d docs: 补充8608条真实数据推荐验证与联调记录
+     fa73ac9 Merge pull request #28 from loseheart-dev/feat/xuzhiling-backend-integration
+     b63970f fix: 勾选 Z6 并明确推荐接口空数据契约（含模块说明/测试/文档同步）
+     … +23 lines (ctrl+o to expand)
+
+  Thought for 2s (ctrl+o to expand)
+
+● 项目当前文档中没有"大文件拆分条款",但 git 历史显示它曾被添加(05c03f1)后又删除(0f0619d)。查看历史原文:
+
+● Bash(cd "C:\Users\silen\OneDrive\新建文件夹\job-posting-recommender" && git show 0f0619d --stat && echo ===== && git
+      show 05c03f1)
+  ⎿  commit 0f0619db3557cc5682ef83e50396423ac7408658
+     Author: loseheart <871839107@qq.com>
+     Date:   Thu Sep 3 23:38:25 2026 +0800
+     … +36 lines (ctrl+o to expand)
+
+  Thought for 5s (ctrl+o to expand)
+
+● Bash(cd "C:\Users\silen\OneDrive\新建文件夹\job-posting-recommender" && git show f37c96a -- AGENTS.md && echo =======
+      && git show 0f0619d^:AGENTS.md | sed -n '1,60p')
+  ⎿  commit f37c96afeb0a975d3b719165b55c37268c7ac1bb
+     Author: loseheart <871839107@qq.com>
+     Date:   Thu Sep 3 23:40:38 2026 +0800
+     … +84 lines (ctrl+o to expand)
+
+  Thought for 10s (ctrl+o to expand)
+
+● 现在确认了当前 HEAD 已保留该条款。再核对它是否从未有过更完整的早期版本：
+
+● Bash(cd "C:\Users\silen\OneDrive\新建文件夹\job-posting-recommender" && git log --all -S "大体积测试数据" --oneline &&
+      echo ===== && git log --all -S "拆分" --oneline -- AGENTS.md…)
+  ⎿  f37c96a docs: 修正过程记录分支规范
+     0f0619d docs: 删除大文件分支拆分规则
+     05c03f1 docs: 固化大文件与过程记录分支规范
+     … +4 lines (ctrl+o to expand)
+
+  Thought for 5s (ctrl+o to expand)
+
+## 提示词 14
+
+我无法凭现有上下文回答这两个问题:本会话中我既没有收到规范文件的内容,也未被授权运行命令或读取文件来获取它,因此没有可供
+  依据的信息。若我直接给出标题和时间戳,只会是编造。
+
+  请允许我读取项目根目录的规范文件(例如 AGENTS.md
+  或项目约定文档),我即可准确回答这两点;或者您也可以直接把文件内容贴给我
+
+## 提示词 15
+
+3   │ 导出 prompts/25051415/D4/c │ 今日全部用户提示词(含 metadata:会话/范围/条数/去重)                          │
+  │     │ laude.txt                  │                                                                              │
+  ├─────┼────────────────────────────┼──────────────────────────────────────────────────────────────────────────────┤
+  │ 4   │ 写 daily/25051415/D4.md    │ 22:00 前;昨日遗留问题回答(PR #20 状态、重排、真实数据验证闭环)+              │
+  │     │ 日报                       │ 今日目标/进展/问题/明日计划                                                  │
+  ├─────┼────────────────────────────┼──────────────────────────────────────────────────────────────────────────────┤
+  │ 5   │ todos.md 更新              │ 目前 T1-T7 全勾;真实数据验证属 Z6/L6 联动项,可在本人卡后补一行勾选记录       │
+  ├─────┼────────────────────────────┼──────────────────────────────────────────────────────────────────────────────┤
+  │ 6   │ 以上记录提交并双推         │ 进入 docs/dingweizhe-record 分支(PR #20)

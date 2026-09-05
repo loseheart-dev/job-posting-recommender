@@ -232,6 +232,28 @@ class RecommenderMultifactorTest(unittest.TestCase):
         assert first_row["company_nature"] == ""
         assert first_row["industry"] == ""
 
+    def test_minimal_required_columns_only(self) -> None:
+        # 恰好只含 REQUIRED_JOB_COLUMNS 的最小岗位表：description/city 等
+        # 可选字段缺失时必须按空处理，不抛 KeyError（审查 P1 回归）
+        from src.data.schema import REQUIRED_JOB_COLUMNS
+
+        minimal = pd.DataFrame(
+            [
+                {"job_id": "1", "title": "数据分析实习生", "company": "示例科技",
+                 "skills": "Python;SQL", "salary_min": 3000, "salary_max": 5000,
+                 "salary_avg": 4000, "source": "test", "crawled_at": "2026-09-01T10:00:00"},
+                {"job_id": "2", "title": "后端开发工程师", "company": "测试公司",
+                 "skills": "Java;Spring", "salary_min": 9000, "salary_max": 12000,
+                 "salary_avg": 10500, "source": "test", "crawled_at": "2026-09-01T10:00:00"},
+            ]
+        )
+        assert list(minimal.columns) == list(REQUIRED_JOB_COLUMNS)
+        result = recommend_jobs_multifactor({"target_role": "数据分析", "skills": "Python;SQL"}, minimal)
+        assert not result.empty
+        assert result.iloc[0]["job_id"] == "1"  # 技能全命中排第一
+        assert result.iloc[0]["company_size"] == ""  # 缺列输出为空
+        assert result.iloc[0]["reason"]  # reason 仍可生成
+
     def test_empty_jobs_returns_empty_frame(self) -> None:
         empty = pd.DataFrame(columns=JOB_COLUMNS)
         result = recommend_jobs_multifactor({"target_role": "数据分析", "skills": "Python"}, empty)

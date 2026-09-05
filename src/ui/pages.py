@@ -154,7 +154,7 @@ def _apply_style() -> None:
 
 def _render_about_page() -> None:
     if ABOUT_PAGE_PATH.exists():
-        st.markdown(ABOUT_PAGE_PATH.read_text(encoding="utf-8"), unsafe_allow_html=True)
+        st.html(ABOUT_PAGE_PATH.read_text(encoding="utf-8"))
     else:
         st.error("项目介绍页面暂不可用。")
 

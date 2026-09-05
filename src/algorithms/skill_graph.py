@@ -1,7 +1,7 @@
 """岗位能力需求图谱（郑维豪负责）。
 
 对外接口：
-- build_skill_graph(jobs) -> {nodes, edges, skill_frequency}
+- build_skill_graph(jobs, min_cooccurrence=1, category=None) -> {nodes, edges, skill_frequency}
 
 统计技能出现频次与同一岗位内的技能共现关系，输出可被前端
 渲染为图谱的节点、边和频率数据。
@@ -14,22 +14,31 @@ from collections import Counter
 import pandas as pd
 
 from src.algorithms._common import split_skills, validate_jobs
+from src.data.market import add_job_category
 from src.data.schema import SKILL_GRAPH_KEYS
 
 
-def build_skill_graph(jobs: pd.DataFrame, min_cooccurrence: int = 1) -> dict[str, object]:
+def build_skill_graph(
+    jobs: pd.DataFrame,
+    min_cooccurrence: int = 1,
+    category: str | None = None,
+) -> dict[str, object]:
     """构建岗位能力需求图谱。
 
     返回结构（SKILL_GRAPH_KEYS）：
     - nodes: [{id, label, count}]，技能节点及出现频次；
     - edges: [{source, target, weight}]，同一岗位共同出现的技能对及次数；
-    - skill_frequency: [(skill, count), ...]，按频次降序。
+    - skill_frequency: [(skill, count), ...]，按频次降序；category 传入时只统计该岗位类别。
     """
     validate_jobs(jobs)
+    source = jobs
+    if category:
+        categorized = add_job_category(jobs)
+        source = categorized[categorized["job_category"] == category]
     skill_counter: Counter[str] = Counter()
     pair_counter: Counter[tuple[str, str]] = Counter()
 
-    for raw in jobs["skills"].dropna():
+    for raw in source["skills"].dropna():
         skills = split_skills(raw)
         for skill in skills:
             skill_counter[skill] += 1

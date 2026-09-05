@@ -11,6 +11,7 @@ import plotly.express as px
 import streamlit as st
 
 from src.data.schema import StudentProfile
+from src.data.market import JOB_CATEGORIES, add_job_category
 from src.services import analysis_service, site_service, task_service
 from src.services.job_service import (
     education_distribution,
@@ -653,12 +654,27 @@ def _render_analysis(jobs: pd.DataFrame) -> None:
             st.dataframe(salary_factors, width='stretch', hide_index=True, height=360)
         except Exception as exc: st.warning(f"薪资因素分析不可用：{exc}")
 
+    analysis_category = st.selectbox(
+        "分析岗位类别",
+        ["全部岗位", *JOB_CATEGORIES],
+        key="analysis_category",
+        help="按类别统计技能并聚类，避免全量频次被技术岗位标签主导。",
+    )
+    selected_category = None if analysis_category == "全部岗位" else analysis_category
+    category_jobs = jobs
+    if selected_category:
+        categorized_jobs = add_job_category(jobs)
+        category_jobs = jobs.loc[categorized_jobs["job_category"] == selected_category]
+
     skill_col, cluster_col = st.columns([1.15, 0.85], gap="medium")
     with skill_col:
         with st.container(border=True):
             st.markdown('<div class="section-label">岗位能力需求图谱</div>', unsafe_allow_html=True)
             try:
-                freq_df = pd.DataFrame(analysis_service.skill_graph(jobs)["skill_frequency"][:15], columns=["技能", "出现次数"]).sort_values("出现次数")
+                freq_df = pd.DataFrame(
+                    analysis_service.skill_graph(jobs, category=selected_category)["skill_frequency"][:15],
+                    columns=["技能", "出现次数"],
+                ).sort_values("出现次数")
                 fig = px.bar(freq_df, x="出现次数", y="技能", orientation="h", color_discrete_sequence=[COLORS["primary"]])
                 st.plotly_chart(_style_figure(fig, 360), width='stretch', config={"displayModeBar": False})
             except Exception as exc: st.warning(f"能力需求图谱不可用：{exc}")
@@ -666,11 +682,17 @@ def _render_analysis(jobs: pd.DataFrame) -> None:
         with st.container(border=True):
             st.markdown('<div class="section-label">岗位聚类</div>', unsafe_allow_html=True)
             try:
-                _, summaries = analysis_service.job_cluster(jobs)
+                _, summaries = analysis_service.job_cluster(category_jobs)
                 for cluster_id, info in list(summaries.items())[:4]:
+                    category_skills = info.get("top_skills_by_category", {})
+                    skill_text = "；".join(
+                        f"{category}：{'、'.join(skills)}"
+                        for category, skills in category_skills.items()
+                        if skills
+                    ) or "、".join(info.get("top_skills", []))
                     st.markdown(f"""<div class="profile-summary"><strong>群组 {html.escape(str(cluster_id))}</strong><div class="meta-grid">
                     <div>岗位数量<br><strong>{_safe(info.get('count'))}</strong></div><div>岗位类别<br><strong>{_safe(info.get('dominant_category'))}</strong></div><div>平均薪资<br><strong class="salary">{_safe(info.get('salary_avg'))}</strong></div>
-                    <div>代表城市<br><strong>{_safe(info.get('dominant_city'))}</strong></div><div>高频技能<br><strong>{_safe('、'.join(info.get('top_skills', [])))}</strong></div></div></div>""", unsafe_allow_html=True)
+                    <div>代表城市<br><strong>{_safe(info.get('dominant_city'))}</strong></div><div>高频技能<br><strong>{_safe(skill_text)}</strong></div></div></div>""", unsafe_allow_html=True)
             except Exception as exc: st.warning(f"岗位聚类不可用：{exc}")
 
     with st.container(border=True):

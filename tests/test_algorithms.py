@@ -77,6 +77,12 @@ def test_normal() -> None:
         "技能图谱过滤岗位要求文本",
         split_skills("Python;要求数据开发经验;非外包类;计算机相关专业") == ["Python"],
     )
+    business_skills = split_skills("财务;应收应付;中级会计师;数据分析能力;培训机构;不可兼职;SolidWorks")
+    check(
+        "业务技能归一化并保留",
+        business_skills == ["财务", "应收应付", "会计", "数据分析", "SolidWorks"],
+        str(business_skills),
+    )
 
     profiles = build_company_profiles(jobs)
     check("企业画像返回 6 个约定列", list(profiles.columns) == ["company", "company_size", "company_nature", "industry", "salary_summary", "skill_summary"])
@@ -185,6 +191,13 @@ def test_skill_noise_filter() -> None:
     # known_only=False 仍可拿到原始拆分（供需要原始文本的场景）
     raw = split_skills("Python;非外包类", known_only=False)
     check("known_only=False 返回原始拆分", raw == ["Python", "非外包类"], str(raw))
+
+    categorized_jobs = build_sample_frame().copy()
+    categorized_jobs.loc[:5, "title"] = "财务专员"
+    categorized_jobs.loc[:5, "skills"] = "财务;应收应付"
+    finance_graph = build_skill_graph(categorized_jobs, category="财务")
+    finance_frequency = dict(finance_graph["skill_frequency"])
+    check("图谱支持按岗位类别筛选", finance_frequency == {"财务": 6, "应收应付": 6}, str(finance_frequency))
 def test_algorithm_fallbacks() -> None:
     print("[8/8] 算法层兜底功能案例")
     from src.algorithms._common import flag_abnormal_salary, split_skills

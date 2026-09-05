@@ -65,10 +65,10 @@ def job_cluster(jobs: pd.DataFrame, n_clusters: int = 3) -> tuple[pd.DataFrame, 
     return _clustering.cluster_jobs(jobs, n_clusters=n_clusters)
 
 
-def skill_graph(jobs: pd.DataFrame) -> dict[str, object]:
-    """岗位能力需求图谱（郑维豪）。返回 ``{nodes, edges, skill_frequency}``。"""
+def skill_graph(jobs: pd.DataFrame, category: str | None = None) -> dict[str, object]:
+    """岗位能力需求图谱（郑维豪），可按岗位类别统计。"""
     _require_data(jobs, "能力需求图谱分析")
-    return _skill_graph.build_skill_graph(jobs)
+    return _skill_graph.build_skill_graph(jobs, category=category)
 
 
 def company_profile(jobs: pd.DataFrame) -> pd.DataFrame:
@@ -99,4 +99,3 @@ def recommend_jobs_multifactor(
     岗位表为空或画像无内容时返回空结果表（遵循丁伟哲推荐冻结契约，不抛错）。
     """
     return _recommender.recommend_jobs_multifactor(_as_profile(profile), jobs, top_k=top_k)
-

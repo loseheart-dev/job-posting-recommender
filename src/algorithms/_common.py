@@ -68,7 +68,47 @@ SKILL_WHITELIST: frozenset[str] = frozenset({
     "数据中台", "数据湖", "数据管道", "推荐算法", "排序算法", "风控算法",
     "广告算法", "搜索算法", "数据运营", "指标体系", "数据结构", "算法",
     "统计学", "概率论", "项目管理", "敏捷开发",
+    # --- 财务 / 销售 / 行政 / 制造 / 运营岗位技能 ---
+    "财务", "会计", "会计核算", "财务分析", "成本", "成本控制", "总账", "收入账",
+    "应收应付", "应收账款", "应付账款", "预算", "资金管理", "结算", "税务", "税务筹划",
+    "审计", "内部审计", "外部审计", "固定资产核算", "代理记账", "CPA", "金蝶", "用友",
+    "电话销售", "面销/陌拜", "网络销售", "企业服务", "金融产品", "客户签约", "客户开发",
+    "客户邀约", "客户关系维护", "会展销售", "渠道关系维护", "渠道客户开发", "商务谈判",
+    "沟通能力", "沟通协调", "招商拓展", "门店销售", "售前服务", "售后服务", "营销策划",
+    "行政", "行政前台", "行政管理", "客服", "电话客服", "线上客服", "售前客服", "售后客服",
+    "人力资源", "招聘", "薪酬绩效", "培训", "办公软件", "ERP", "B端产品", "C端产品",
+    "产品运营", "用户运营", "内容运营", "产品设计", "数据产品", "市场调研", "市场推广",
+    "教育培训", "线下教育", "教师", "课程设计", "平面设计", "物流管理", "库存控制",
+    "货物验收", "货物出库", "SolidWorks", "AutoCAD", "PLC", "UG", "CAD", "电工证",
+    "QC七大手法", "CATIA", "Pro/E", "生产计划", "生产成本管理", "生产设备管理", "质量管理",
+    "自动化", "设备维护", "供应链管理", "仓储管理", "机械制图", "焊接", "数控",
 })
+
+# 采集站点会把同一技能写成多个标签；只在白名单模式下归一化，避免
+# known_only=False 的调用失去原始字段语义。
+SKILL_ALIASES: dict[str, str] = {
+    "C/C++": "C++",
+    "Golang": "Go",
+    "MySQL/SQL Server": "MySQL",
+    "数据分析能力": "数据分析",
+    "数据分析能力好": "数据分析",
+    "数据分析能力强": "数据分析",
+    "掌握财务知识": "财务",
+    "中级会计师": "会计",
+    "初级会计师": "会计",
+    "会计从业资格证": "会计",
+    "注册税务师": "税务",
+    "税务代理/咨询": "税务",
+    "税务筹划代理公司": "税务筹划",
+    "渠道/机构客户开发": "渠道客户开发",
+    "较强的沟通协调能力": "沟通协调",
+    "较强的渠道拓展能力": "渠道客户开发",
+    "熟练使用ERP系统": "ERP",
+    "生产计划与物流控制": "生产计划",
+    "PQE经验（制程）": "质量管理",
+    "CQE经验（客户）": "质量管理",
+    "PLC工程师": "PLC",
+}
 
 
 def validate_jobs(jobs: pd.DataFrame) -> None:
@@ -102,11 +142,14 @@ def split_skills(skills: object, known_only: bool = True) -> list[str]:
     seen: list[str] = []
     for value in values:
         cleaned = value.strip()
-        if not cleaned or cleaned in seen:
+        if not cleaned:
             continue
-        if known_only and cleaned not in SKILL_WHITELIST:
+        canonical = SKILL_ALIASES.get(cleaned, cleaned) if known_only else cleaned
+        if canonical in seen:
             continue
-        seen.append(cleaned)
+        if known_only and canonical not in SKILL_WHITELIST:
+            continue
+        seen.append(canonical)
     return seen
 
 

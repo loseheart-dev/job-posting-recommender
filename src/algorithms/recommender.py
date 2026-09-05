@@ -173,7 +173,7 @@ def recommend_jobs(
     for row, similarity in zip(result.itertuples(index=False), similarities, strict=False):
         job_skills = _skill_set(row.skills)
         matched = sorted(profile_skills & job_skills)
-        missing = sorted(profile_skills - job_skills)
+        missing = sorted(job_skills - profile_skills)
         hit_ratio = len(matched) / max(len(profile_skills), 1)
         city_ok = bool(city) and city.lower() in _text(row.city).lower()
         experience_ok = bool(experience) and experience.lower() in _text(row.experience).lower()
@@ -281,7 +281,7 @@ def recommend_jobs_multifactor(
     for index, row in enumerate(result.itertuples(index=False)):
         job_skills = _skill_set(row.skills)
         matched = sorted(profile_skills & job_skills)
-        missing_skills = sorted(profile_skills - job_skills)
+        missing_skills = sorted(job_skills - profile_skills)
         hit_ratio = len(matched) / max(len(profile_skills), 1)
         city_ok = bool(profile.preferred_city) and profile.preferred_city.lower() in _text(row.city).lower()
         experience_ok = bool(profile.experience) and profile.experience.lower() in _text(row.experience).lower()

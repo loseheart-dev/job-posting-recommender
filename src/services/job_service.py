@@ -55,6 +55,48 @@ def summarize_jobs(jobs: pd.DataFrame) -> dict[str, object]:
     }
 
 
+def education_distribution(jobs: pd.DataFrame, top_k: int = 6) -> list[dict[str, object]]:
+    """按学历统计岗位数量，供市场概览页绘制分布图。"""
+    if isinstance(top_k, bool) or not isinstance(top_k, int) or top_k < 1:
+        raise ValueError(f"top_k 必须是正整数，实际为: {top_k!r}")
+    result = _canonical_jobs(jobs)
+    education = result["education"].fillna("").astype(str).str.strip().replace("", "不限")
+    counts = education.value_counts().head(top_k)
+    return [
+        {"education": str(label), "count": int(count)}
+        for label, count in counts.items()
+    ]
+
+
+def paginate_jobs(
+    jobs: pd.DataFrame,
+    page: int = 1,
+    page_size: int = 10,
+) -> dict[str, object]:
+    """返回岗位分页结果及稳定的分页元数据。
+
+    ``page`` 从 1 开始；空结果的 ``total_pages`` 为 0；请求超过末页时
+    自动落到最后一页，避免筛选条件变化后页面出现空白页。
+    """
+    if isinstance(page, bool) or not isinstance(page, int) or page < 1:
+        raise ValueError(f"page 必须是正整数，实际为: {page!r}")
+    if isinstance(page_size, bool) or not isinstance(page_size, int) or page_size < 1:
+        raise ValueError(f"page_size 必须是正整数，实际为: {page_size!r}")
+    result = _canonical_jobs(jobs)
+    total = len(result)
+    total_pages = math.ceil(total / page_size) if total else 0
+    current_page = min(page, total_pages) if total_pages else 1
+    start = (current_page - 1) * page_size
+    items = result.iloc[start : start + page_size].reset_index(drop=True)
+    return {
+        "items": items,
+        "total": total,
+        "page": current_page,
+        "page_size": page_size,
+        "total_pages": total_pages,
+    }
+
+
 def salary_distribution(jobs: pd.DataFrame, step: float = 5000.0) -> list[dict[str, object]]:
     """按 ``salary_avg`` 生成薪资分桶分布，供页面绘图。
 

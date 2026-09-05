@@ -20,14 +20,17 @@
 
 - 导航：五个入口均可切换，激活态清晰。
 - 筛选：“Python + 杭州”将结果从 8,608 条缩小为 12 条，详情同步更新。
+- 接口：学历图表使用 `education_distribution`；概览和检索结果使用 `filter_jobs` → `paginate_jobs`，结果总数与页码元数据来自同一返回值。
+- 分页：检索页实际切换到第 2 页，表格与详情均随当前页同步。
 - 推荐：目标岗位“数据分析师”、期望城市“杭州”、技能“Python;SQL”成功生成 5 条多因素推荐。
 - 空值：缺失技能显示“暂无”，不再渲染 `nan`；空数据、无筛选结果、模型错误和采集错误均有独立提示路径。
 - 可访问性：表单有可读标签，使用原生键盘可达控件，动效遵循 `prefers-reduced-motion`。
-- 控制台：未发现 error/warning 日志。
+- 控制台：未发现应用 error；Streamlit 当前版本仍会提示 `use_container_width` 弃用 warning。
 
 ## 验证命令
 
-- `.venv/bin/python -m pytest -q`：59 passed。
+- `.venv/bin/python -m pytest -q`：64 passed。
+- `.venv/bin/python -m tests.verify_app_integration`：五模块渲染、搜索、分页第 2 页、推荐提交和采集触发通过。
 - `.venv/bin/python -m py_compile src/ui/pages.py`：通过。
 - `git diff --check`：通过。
 

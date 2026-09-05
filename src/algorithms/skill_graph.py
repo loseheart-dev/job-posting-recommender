@@ -1,7 +1,7 @@
 """岗位能力需求图谱（郑维豪负责）。
 
 对外接口：
-- build_skill_graph(jobs, min_cooccurrence=1, category=None) -> {nodes, edges, skill_frequency}
+- build_skill_graph(jobs, min_cooccurrence=1, category=None, balanced=False) -> {nodes, edges, skill_frequency}
 
 统计技能出现频次与同一岗位内的技能共现关系，输出可被前端
 渲染为图谱的节点、边和频率数据。
@@ -13,7 +13,7 @@ from collections import Counter
 
 import pandas as pd
 
-from src.algorithms._common import split_skills, validate_jobs
+from src.algorithms._common import balanced_top_skills, split_skills, validate_jobs
 from src.data.market import add_job_category
 from src.data.schema import SKILL_GRAPH_KEYS
 
@@ -22,6 +22,7 @@ def build_skill_graph(
     jobs: pd.DataFrame,
     min_cooccurrence: int = 1,
     category: str | None = None,
+    balanced: bool = False,
 ) -> dict[str, object]:
     """构建岗位能力需求图谱。
 
@@ -29,6 +30,7 @@ def build_skill_graph(
     - nodes: [{id, label, count}]，技能节点及出现频次；
     - edges: [{source, target, weight}]，同一岗位共同出现的技能对及次数；
     - skill_frequency: [(skill, count), ...]，按频次降序；category 传入时只统计该岗位类别。
+      balanced=True 且未指定 category 时，改为类别等权技能覆盖率排名。
     """
     validate_jobs(jobs)
     source = jobs
@@ -56,7 +58,11 @@ def build_skill_graph(
         for (a, b), weight in sorted(pair_counter.items(), key=lambda item: -item[1])
         if weight >= min_cooccurrence
     ]
-    skill_frequency = list(skill_counter.most_common())
+    skill_frequency = (
+        balanced_top_skills(jobs)
+        if balanced and category is None
+        else list(skill_counter.most_common())
+    )
     return {
         "nodes": nodes,
         "edges": edges,

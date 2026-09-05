@@ -17,6 +17,8 @@ from typing import Iterable
 
 import pandas as pd
 
+from src.data.market import add_job_category
+
 # 必填字段：缺失时直接报错，避免后续静默出错
 REQUIRED_COLUMNS = ("job_id", "title", "skills")
 
@@ -160,6 +162,33 @@ def top_skills(jobs: pd.DataFrame, n: int = 10) -> list[tuple[str, int]]:
         for skill in split_skills(raw):
             counts[skill] += 1
     return sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:n]
+
+
+def balanced_top_skills(jobs: pd.DataFrame, n: int = 10) -> list[tuple[str, float]]:
+    """按岗位类别等权计算技能覆盖率并返回排名。
+
+    每个类别先按“包含该技能的岗位数 / 类别岗位数”计算覆盖率，再对类别取
+    算术平均，避免岗位数量和技能字段完整度更高的类别主导全量榜单。
+    """
+    validate_jobs(jobs)
+    categorized = add_job_category(jobs)
+    groups = [group for _, group in categorized.groupby("job_category", sort=True) if len(group)]
+    if not groups:
+        return []
+    scores: dict[str, float] = {}
+    for group in groups:
+        counts: dict[str, int] = {}
+        for raw in group["skills"].fillna(""):
+            for skill in set(split_skills(raw)):
+                counts[skill] = counts.get(skill, 0) + 1
+        for skill, count in counts.items():
+            scores[skill] = scores.get(skill, 0.0) + count / len(group)
+    category_count = len(groups)
+    ranked = sorted(
+        ((skill, round(score / category_count, 4)) for skill, score in scores.items()),
+        key=lambda item: (-item[1], item[0]),
+    )
+    return ranked[:n]
 
 
 def _feature_skill_vocabulary(jobs: pd.DataFrame, n: int) -> list[str]:

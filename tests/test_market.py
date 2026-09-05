@@ -1,4 +1,4 @@
-from src.algorithms._common import encode_job_features
+from src.algorithms._common import balanced_top_skills, encode_job_features
 from src.algorithms.clustering import cluster_jobs
 from src.data.market import (
     MARKET_SUPPLEMENT_CITIES,
@@ -7,7 +7,7 @@ from src.data.market import (
     classify_job_category,
 )
 from src.data.schema import JOB_COLUMNS
-from src.services.job_service import summarize_jobs
+from src.services.job_service import category_metrics, summarize_jobs
 from tests.sample_data import build_sample_frame
 
 
@@ -47,3 +47,23 @@ def test_summary_uses_the_same_whitelisted_skills_as_analysis() -> None:
     assert "要求数据开发经验" not in top
     assert "非外包类" not in top
     assert top["Python"] == 2
+
+
+def test_category_metrics_and_balanced_skill_rank() -> None:
+    jobs = build_sample_frame().head(5).copy()
+    jobs.loc[:3, ["title", "skills"]] = ["后端开发工程师", "Python"]
+    jobs.loc[4, ["title", "skills"]] = ["财务专员", "会计"]
+
+    metrics = {item["category"]: item for item in category_metrics(jobs)}
+    assert metrics["技术"]["job_count"] == 4
+    assert metrics["财务"]["job_count"] == 1
+    assert metrics["技术"]["skill_coverage"] == 1.0
+    assert metrics["财务"]["skill_coverage"] == 1.0
+
+    summary = summarize_jobs(jobs)
+    assert summary["category_metrics"] == category_metrics(jobs)
+    assert summary["balanced_top_skills"][:2] == [("Python", 0.5), ("会计", 0.5)]
+
+    balanced = dict(balanced_top_skills(jobs, 2))
+    assert balanced["Python"] == 0.5
+    assert balanced["会计"] == 0.5

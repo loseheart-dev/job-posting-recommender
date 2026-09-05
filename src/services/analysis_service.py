@@ -65,10 +65,14 @@ def job_cluster(jobs: pd.DataFrame, n_clusters: int = 3) -> tuple[pd.DataFrame, 
     return _clustering.cluster_jobs(jobs, n_clusters=n_clusters)
 
 
-def skill_graph(jobs: pd.DataFrame, category: str | None = None) -> dict[str, object]:
-    """岗位能力需求图谱（郑维豪），可按岗位类别统计。"""
+def skill_graph(
+    jobs: pd.DataFrame,
+    category: str | None = None,
+    balanced: bool = False,
+) -> dict[str, object]:
+    """岗位能力需求图谱（郑维豪），可按岗位类别统计或做类别等权排名。"""
     _require_data(jobs, "能力需求图谱分析")
-    return _skill_graph.build_skill_graph(jobs, category=category)
+    return _skill_graph.build_skill_graph(jobs, category=category, balanced=balanced)
 
 
 def company_profile(jobs: pd.DataFrame) -> pd.DataFrame:

@@ -10,8 +10,8 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from src.data.schema import StudentProfile
 from src.data.market import JOB_CATEGORIES, add_job_category
+from src.data.schema import StudentProfile
 from src.services import analysis_service, site_service, task_service
 from src.services.job_service import (
     education_distribution,
@@ -395,13 +395,14 @@ def render_home(jobs: pd.DataFrame) -> None:
 def _render_overview(jobs: pd.DataFrame) -> None:
     _page_header("面向大学生求职的岗位数据分析与个性化推荐系统", jobs)
     summary = summarize_jobs(jobs)
-    job_count, salary_avg, salary_count, top_skills = summary["job_count"], summary["salary_avg"], summary["salary_count"], summary["top_skills"]
+    job_count, salary_avg, salary_count = summary["job_count"], summary["salary_avg"], summary["salary_count"]
+    balanced_skills = summary.get("balanced_top_skills", [])
     salary_coverage = salary_count / job_count * 100 if job_count else 0.0
     cols = st.columns(4, gap="small")
     with cols[0]: _kpi("岗位总量", f"{job_count:,}", "当前清洗后的有效岗位")
     with cols[1]: _kpi("平均月薪", f"¥{salary_avg:,.0f}" if salary_avg is not None else "暂无数据", "按有效月薪样本统计", "salary")
     with cols[2]: _kpi("薪资数据覆盖率", f"{salary_coverage:.1f}%", f"有效薪资 {salary_count:,} 条", "success")
-    with cols[3]: _kpi("高频技能（Top 5）", top_skills[0][0] if top_skills else "暂无数据", "、".join(skill for skill, _ in top_skills[:5]) or "暂无数据")
+    with cols[3]: _kpi("类别均衡技能 Top 1", balanced_skills[0][0] if balanced_skills else "暂无数据", "、".join(skill for skill, _ in balanced_skills[:5]) or "暂无数据")
 
     chart_cols = st.columns(3, gap="small")
     with chart_cols[0]:
@@ -428,6 +429,41 @@ def _render_overview(jobs: pd.DataFrame) -> None:
                 st.info("暂无学历数据。")
             else:
                 fig = px.pie(edu_df, names="学历", values="岗位数量", hole=.55, color_discrete_sequence=[COLORS["primary"], "#21B9A6", "#F4B740", "#8D72E1", "#AAB5C7", "#5C9CF5"])
+                st.plotly_chart(_style_figure(fig), width='stretch', config={"displayModeBar": False})
+    category_df = pd.DataFrame(summary.get("category_metrics", []))
+    if not category_df.empty:
+        metric_cols = st.columns(2, gap="small")
+        with metric_cols[0]:
+            with st.container(border=True):
+                st.markdown('<div class="section-label">岗位类别占比</div>', unsafe_allow_html=True)
+                share_df = category_df.assign(岗位占比=lambda frame: frame["job_share"] * 100).rename(
+                    columns={"category": "岗位类别", "岗位占比": "岗位占比（%）"}
+                )
+                fig = px.bar(
+                    share_df.sort_values("岗位占比（%）"),
+                    x="岗位占比（%）",
+                    y="岗位类别",
+                    orientation="h",
+                    text="岗位占比（%）",
+                    color_discrete_sequence=[COLORS["primary"]],
+                )
+                fig.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
+                st.plotly_chart(_style_figure(fig), width='stretch', config={"displayModeBar": False})
+        with metric_cols[1]:
+            with st.container(border=True):
+                st.markdown('<div class="section-label">类别内技能覆盖率</div>', unsafe_allow_html=True)
+                coverage_df = category_df.assign(技能覆盖率=lambda frame: frame["skill_coverage"] * 100).rename(
+                    columns={"category": "岗位类别", "技能覆盖率": "技能覆盖率（%）"}
+                )
+                fig = px.bar(
+                    coverage_df.sort_values("技能覆盖率（%）"),
+                    x="技能覆盖率（%）",
+                    y="岗位类别",
+                    orientation="h",
+                    text="技能覆盖率（%）",
+                    color_discrete_sequence=[COLORS["success"]],
+                )
+                fig.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
                 st.plotly_chart(_style_figure(fig), width='stretch', config={"displayModeBar": False})
     _render_overview_workspace(jobs)
 
@@ -671,12 +707,21 @@ def _render_analysis(jobs: pd.DataFrame) -> None:
         with st.container(border=True):
             st.markdown('<div class="section-label">岗位能力需求图谱</div>', unsafe_allow_html=True)
             try:
+                balanced = selected_category is None
+                metric = "类别等权覆盖率" if balanced else "出现次数"
                 freq_df = pd.DataFrame(
-                    analysis_service.skill_graph(jobs, category=selected_category)["skill_frequency"][:15],
-                    columns=["技能", "出现次数"],
-                ).sort_values("出现次数")
-                fig = px.bar(freq_df, x="出现次数", y="技能", orientation="h", color_discrete_sequence=[COLORS["primary"]])
+                    analysis_service.skill_graph(
+                        jobs,
+                        category=selected_category,
+                        balanced=balanced,
+                    )["skill_frequency"][:15],
+                    columns=["技能", metric],
+                ).sort_values(metric)
+                if balanced:
+                    freq_df[metric] = freq_df[metric] * 100
+                fig = px.bar(freq_df, x=metric, y="技能", orientation="h", color_discrete_sequence=[COLORS["primary"]])
                 st.plotly_chart(_style_figure(fig, 360), width='stretch', config={"displayModeBar": False})
+                st.caption("全部岗位使用类别等权技能覆盖率；选择具体类别后显示该类别的岗位出现次数。" if balanced else "当前为所选岗位类别的技能出现次数。")
             except Exception as exc: st.warning(f"能力需求图谱不可用：{exc}")
     with cluster_col:
         with st.container(border=True):

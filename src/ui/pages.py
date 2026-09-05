@@ -31,10 +31,24 @@ PAGES = ("市场概览", "岗位检索", "分析洞察", "个性化推荐", "采
 DATA_PATH = Path("data/processed/jobs.csv")
 ABOUT_PAGE_PATH = Path(__file__).resolve().parents[2] / "about.html"
 ABOUT_URL = "/about.html"
+INTERPRETATION_URL = "/interpretation.html"
+FACTOR_DISPLAY_NAMES = {
+    "education": "学历",
+    "experience": "工作经验",
+    "city": "城市",
+    "work_type": "工作方式",
+    "company_nature": "企业性质",
+    "company_size": "企业规模",
+    "industry": "所属行业",
+}
 
 
 def _is_about_page_url(url: object) -> bool:
     return str(url or "").rstrip("/").endswith("/about.html")
+
+
+def _is_interpretation_page_url(url: object) -> bool:
+    return str(url or "").rstrip("/").endswith(INTERPRETATION_URL)
 
 
 def _apply_style() -> None:
@@ -240,6 +254,123 @@ def _format_skill_summary(value: object) -> str:
     return " · ".join(items)
 
 
+def _readable_factor(value: object) -> str:
+    text = _display_text(value)
+    factor, separator, level = text.partition("-")
+    name = FACTOR_DISPLAY_NAMES.get(factor, factor)
+    return f"{name}：{level}" if separator and level else name
+
+
+def _render_human_interpretation(jobs: pd.DataFrame) -> None:
+    _page_header("求职解读", jobs, "把统计结果翻译成求职者能用的判断")
+    if jobs.empty:
+        st.info("当前没有可解读的岗位数据，请先准备清洗后的 jobs.csv。")
+        return
+
+    summary = summarize_jobs(jobs)
+    job_count = int(summary.get("job_count", len(jobs)))
+    salary_count = int(summary.get("salary_count", 0))
+    salary_avg = summary.get("salary_avg")
+    salary_coverage = salary_count / job_count * 100 if job_count else 0.0
+    company_series = jobs.get("company", pd.Series(index=jobs.index, dtype="object"))
+    city_series = jobs.get("city", pd.Series(index=jobs.index, dtype="object"))
+    company_count = int(company_series.fillna("").astype(str).str.strip().replace("", pd.NA).dropna().nunique())
+    city_count = int(city_series.fillna("").astype(str).str.strip().replace("", pd.NA).dropna().nunique())
+
+    metric_cols = st.columns(3, gap="small")
+    with metric_cols[0]:
+        _kpi("样本规模", f"{job_count:,} 条", "当前参与解读的岗位")
+    with metric_cols[1]:
+        _kpi("有效月薪覆盖", f"{salary_coverage:.1f}%", f"可比较薪资 {salary_count:,} 条", "success")
+    with metric_cols[2]:
+        _kpi("企业与城市", f"{company_count:,} / {city_count:,}", "企业数 / 城市数")
+
+    with st.container(border=True):
+        st.markdown('<div class="section-label">先看结论</div>', unsafe_allow_html=True)
+        if salary_count == 0:
+            st.write("当前样本没有可比较的月薪，暂时不能用这批数据判断待遇水平。")
+        elif salary_coverage >= 80:
+            st.write(
+                f"这批数据中约 {salary_coverage:.1f}% 的岗位给出了可比较的月薪，"
+                f"整体平均约为 {float(salary_avg):,.0f} 元/月。它适合帮助你建立市场参照，"
+                "但不代表任何个人一定能拿到这个数。"
+            )
+        else:
+            st.write(
+                f"当前只有 {salary_coverage:.1f}% 的岗位有可比较月薪，平均值只能作为粗略参照。"
+                "做选择时应优先查看具体岗位的薪资区间，并留意缺失信息。"
+            )
+
+    salary_col, factor_col = st.columns([0.9, 1.1], gap="medium")
+    with salary_col:
+        with st.container(border=True):
+            st.markdown('<div class="section-label">薪资结果对求职者意味着什么</div>', unsafe_allow_html=True)
+            st.write("平均月薪回答的是‘市场大致在哪’，薪资区间回答的是‘机会分布有多宽’。")
+            st.write("如果你的目标岗位落在区间上沿，通常需要用学历、经验、技能或项目经历证明自己的匹配度；如果落在下沿，应进一步比较工作内容、城市和福利，而不是只看数字。")
+    with factor_col:
+        with st.container(border=True):
+            st.markdown('<div class="section-label">薪资影响因素如何解读</div>', unsafe_allow_html=True)
+            try:
+                factors = analysis_service.salary_factor_analysis(jobs).head(5)
+                direction_text = {"higher": "与较高薪资相关", "lower": "与较低薪资相关", "neutral": "与整体水平接近"}
+                for _, row in factors.iterrows():
+                    try:
+                        importance = float(row.get("importance", 0))
+                    except (TypeError, ValueError):
+                        importance = 0.0
+                    direction = direction_text.get(str(row.get("impact_direction")), "需要结合样本判断")
+                    st.markdown(
+                        f"- **{_safe(_readable_factor(row.get('factor')))}** —— {direction}，"
+                        f"重要性参考值 {importance:.2f}。"
+                    )
+                st.caption("这里反映的是样本中的统计关联，不是对个人薪资的因果保证。")
+            except Exception as exc:
+                st.warning(f"薪资因素暂时无法解读：{exc}")
+
+    skill_col, company_col = st.columns([1.05, 0.95], gap="medium")
+    with skill_col:
+        with st.container(border=True):
+            st.markdown('<div class="section-label">技能结果如何转化为行动</div>', unsafe_allow_html=True)
+            try:
+                skill_frequency = analysis_service.skill_graph(jobs, balanced=True).get("skill_frequency", [])[:6]
+                skills = [str(item[0]) for item in skill_frequency if isinstance(item, (list, tuple)) and item]
+                if skills:
+                    st.write(f"跨岗位类别覆盖较广的技能包括：{'、'.join(skills)}。")
+                    st.write("这不表示必须全部掌握，而是可以用来安排学习优先级：先补齐目标岗位反复出现的技能，再用项目经历证明实际使用过。")
+                else:
+                    st.write("当前样本没有足够的技能记录，不能据此安排学习优先级。")
+            except Exception as exc:
+                st.warning(f"技能结果暂时无法解读：{exc}")
+    with company_col:
+        with st.container(border=True):
+            st.markdown('<div class="section-label">企业画像对选择公司的意义</div>', unsafe_allow_html=True)
+            st.write(f"当前样本覆盖约 {company_count:,} 家企业、{city_count:,} 个城市。")
+            st.write("企业规模、性质和所属行业可以帮助你区分工作环境、业务稳定性和成长路径。建议把它们与岗位职责、薪资区间和城市生活成本一起比较，不要仅凭公司名称做判断。")
+
+    with st.container(border=True):
+        st.markdown('<div class="section-label">薪资预测应该怎样使用</div>', unsafe_allow_html=True)
+        try:
+            _, metrics = analysis_service.salary_prediction(jobs)
+            mae = float(metrics.get("mae", 0))
+            r2 = float(metrics.get("r2", 0))
+            if r2 >= 0:
+                st.write(f"模型在独立测试集上的平均误差约为 {mae:,.0f} 元/月，R² 为 {r2:.3f}。这说明模型可以从岗位特征中提取一部分薪资差异，但不能替代真实面试、谈薪和个人判断。")
+            else:
+                st.write(f"模型在独立测试集上的平均误差约为 {mae:,.0f} 元/月，R² 为 {r2:.3f}。当前特征对薪资差异的解释力有限，预测结果只能作为非常粗略的参考。")
+            st.caption("预测使用技能、学历、经验、城市、工作方式和企业信息等岗位特征，不把薪资本身作为输入。")
+        except Exception as exc:
+            st.warning(f"薪资预测暂时无法解读：{exc}")
+
+    with st.container(border=True):
+        st.markdown('<div class="section-label">建议的使用顺序</div>', unsafe_allow_html=True)
+        st.markdown(
+            "1. 先按目标岗位和城市筛选，确认自己比较的是同一类机会。\n"
+            "2. 再看薪资区间和薪资覆盖率，避免用少量样本代表整个市场。\n"
+            "3. 对照技能需求，选择最常出现且与目标岗位相关的技能补强。\n"
+            "4. 最后结合个人学历、经历和期望，使用个性化推荐比较具体岗位。"
+        )
+
+
 def _compact_salary_distribution(dist_df: pd.DataFrame, cutoff: int = 40_000) -> pd.DataFrame:
     """将极少量高薪离群区间合并，避免图表被拉长到无法阅读。"""
     if dist_df.empty or "min" not in dist_df or "count" not in dist_df:
@@ -265,6 +396,10 @@ def _sidebar(job_count: int) -> str:
     page = st.sidebar.radio("导航", PAGES, label_visibility="collapsed")
     st.sidebar.markdown(
         f'<a class="sidebar-about-link" href="{ABOUT_URL}" target="_self">项目介绍</a>',
+        unsafe_allow_html=True,
+    )
+    st.sidebar.markdown(
+        f'<a class="sidebar-about-link" href="{INTERPRETATION_URL}" target="_self">求职解读</a>',
         unsafe_allow_html=True,
     )
     site = site_service.ensure_default_site()
@@ -385,6 +520,9 @@ def render_home(jobs: pd.DataFrame) -> None:
         _render_about_page()
         return
     page = _sidebar(len(jobs))
+    if _is_interpretation_page_url(getattr(context, "url", None)):
+        _render_human_interpretation(jobs)
+        return
     if jobs.empty and page != "采集管理":
         _page_header(page, jobs)
         st.info("尚未找到清洗后岗位数据，请将 jobs.csv 放入 data/processed/。")

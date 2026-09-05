@@ -1,6 +1,13 @@
 import unittest
 
-from src.ui.pages import ABOUT_URL, _format_salary_summary, _format_skill_summary, _is_about_page_url
+from src.ui.pages import (
+    ABOUT_URL,
+    INTERPRETATION_URL,
+    _format_salary_summary,
+    _format_skill_summary,
+    _is_about_page_url,
+    _is_interpretation_page_url,
+)
 
 
 class UiFormattingTest(unittest.TestCase):
@@ -18,6 +25,11 @@ class UiFormattingTest(unittest.TestCase):
         self.assertTrue(_is_about_page_url("http://localhost:8501/about.html"))
         self.assertFalse(_is_about_page_url("http://localhost:8501/"))
         self.assertEqual(ABOUT_URL, "/about.html")
+
+    def test_interpretation_page_url_is_exact(self) -> None:
+        self.assertTrue(_is_interpretation_page_url("http://localhost:8501/interpretation.html"))
+        self.assertFalse(_is_interpretation_page_url("http://localhost:8501/"))
+        self.assertEqual(INTERPRETATION_URL, "/interpretation.html")
 
 
 if __name__ == "__main__":

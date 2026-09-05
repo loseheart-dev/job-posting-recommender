@@ -11,7 +11,13 @@ import streamlit as st
 
 from src.data.schema import StudentProfile
 from src.services import analysis_service, site_service, task_service
-from src.services.job_service import filter_jobs, salary_distribution, summarize_jobs
+from src.services.job_service import (
+    education_distribution,
+    filter_jobs,
+    paginate_jobs,
+    salary_distribution,
+    summarize_jobs,
+)
 
 
 COLORS = {
@@ -178,11 +184,22 @@ def _data_updated() -> str:
 def _sidebar(job_count: int) -> str:
     st.sidebar.markdown('<div class="brand"><div class="brand-name">Career Signal</div><div class="brand-subtitle">岗位智能工作台</div></div>', unsafe_allow_html=True)
     page = st.sidebar.radio("导航", PAGES, label_visibility="collapsed")
+    site = site_service.ensure_default_site()
+    tasks = task_service.list_tasks(site.site_id)
+    active_tasks = [task for task in tasks if task.status in {"pending", "running"}]
+    failed_tasks = [task for task in tasks if task.status == "failed"]
+    if active_tasks:
+        collection_status, status_class = "任务处理中", "success"
+    elif failed_tasks:
+        collection_status, status_class = "最近失败", "warning"
+    else:
+        collection_status, status_class = "按需采集", "muted"
+    enabled_text = "已启用" if site.enabled else "已停用"
     st.sidebar.markdown(
         f"""<div class="sidebar-status"><div class="sidebar-status-title">数据链路</div>
-        <div><span class="status-dot"></span>BOSS直聘　<span class="success">运行中</span></div>
+        <div><span class="status-dot"></span>{_safe(site.site_name)}　<span class="{status_class}">{collection_status}</span></div>
         <hr style="border:0;border-top:1px solid var(--border);margin:.6rem 0">
-        <div>启用状态　<span class="success">已启用</span></div><div>采集策略　BFS</div>
+        <div>启用状态　<span class="{status_class}">{enabled_text}</span></div><div>采集策略　{_safe(site.crawl_strategy.upper())}</div>
         <div>数据更新　{_data_updated()}</div><div>岗位记录　{job_count:,} 条</div></div>""",
         unsafe_allow_html=True,
     )
@@ -212,6 +229,68 @@ def _style_figure(fig, height: int = 300):
     fig.update_xaxes(gridcolor="#EDF2F8", linecolor=COLORS["border"])
     fig.update_yaxes(gridcolor="#EDF2F8", linecolor=COLORS["border"])
     return fig
+
+
+def _filter_options(jobs: pd.DataFrame, column: str, all_label: str = "全部") -> list[str]:
+    values = jobs[column].fillna("").astype(str).str.strip()
+    options = sorted({value for value in values if value})
+    return [all_label, *options]
+
+
+def _parse_salary(value: str, label: str) -> float | None:
+    value = value.strip()
+    if not value:
+        return None
+    try:
+        amount = float(value)
+    except ValueError as exc:
+        raise ValueError(f"{label}必须是数字") from exc
+    if amount < 0:
+        raise ValueError(f"{label}不能为负数")
+    return amount
+
+
+def _page_numbers(page: int, total_pages: int) -> list[int | None]:
+    if total_pages <= 7:
+        return list(range(1, total_pages + 1))
+    if page <= 4:
+        return [1, 2, 3, 4, 5, None, total_pages]
+    if page >= total_pages - 3:
+        return [1, None, total_pages - 4, total_pages - 3, total_pages - 2, total_pages - 1, total_pages]
+    return [1, None, page - 1, page, page + 1, None, total_pages]
+
+
+def _render_pagination(meta: dict[str, object], key_prefix: str) -> None:
+    total = int(meta["total"])
+    page = int(meta["page"])
+    total_pages = int(meta["total_pages"])
+    if total_pages <= 1:
+        st.caption(f"共 {total:,} 条岗位")
+        return
+    controls = st.columns([1.1, 4.8, 1.2])
+    with controls[0]:
+        st.caption(f"共 {total:,} 条")
+    with controls[1]:
+        page_cols = st.columns(len(_page_numbers(page, total_pages)))
+        for column, number in zip(page_cols, _page_numbers(page, total_pages), strict=True):
+            with column:
+                if number is None:
+                    st.markdown("<div style='text-align:center;padding:.45rem 0;color:var(--muted)'>…</div>", unsafe_allow_html=True)
+                elif st.button(
+                    str(number),
+                    key=f"{key_prefix}_page_{number}",
+                    type="primary" if number == page else "secondary",
+                    use_container_width=True,
+                ):
+                    st.session_state[f"{key_prefix}_page"] = number
+                    st.rerun()
+    with controls[2]:
+        st.selectbox(
+            "每页条数",
+            [10, 20, 50],
+            key=f"{key_prefix}_page_size",
+            label_visibility="collapsed",
+        )
 
 
 def render_home(jobs: pd.DataFrame) -> None:
@@ -256,39 +335,139 @@ def _render_overview(jobs: pd.DataFrame) -> None:
     with chart_cols[2]:
         with st.container(border=True):
             st.markdown('<div class="section-label">学历要求分布</div>', unsafe_allow_html=True)
-            edu_df = jobs["education"].fillna("不限").replace("", "不限").value_counts().head(6).rename_axis("学历").reset_index(name="岗位数量")
-            fig = px.pie(edu_df, names="学历", values="岗位数量", hole=.55, color_discrete_sequence=[COLORS["primary"], "#21B9A6", "#F4B740", "#8D72E1", "#AAB5C7", "#5C9CF5"])
-            st.plotly_chart(_style_figure(fig), use_container_width=True, config={"displayModeBar": False})
+            edu_df = pd.DataFrame(education_distribution(jobs)).rename(columns={"education": "学历", "count": "岗位数量"})
+            if edu_df.empty:
+                st.info("暂无学历数据。")
+            else:
+                fig = px.pie(edu_df, names="学历", values="岗位数量", hole=.55, color_discrete_sequence=[COLORS["primary"], "#21B9A6", "#F4B740", "#8D72E1", "#AAB5C7", "#5C9CF5"])
+                st.plotly_chart(_style_figure(fig), use_container_width=True, config={"displayModeBar": False})
+    _render_overview_workspace(jobs)
+
+
+def _render_overview_workspace(jobs: pd.DataFrame) -> None:
+    search_col, recommendation_col = st.columns([2.35, 1], gap="small")
+    with search_col:
+        with st.container(border=True):
+            st.markdown('<div class="section-label">岗位检索</div>', unsafe_allow_html=True)
+            if "overview_page" not in st.session_state:
+                st.session_state["overview_page"] = 1
+            if "overview_page_size" not in st.session_state:
+                st.session_state["overview_page_size"] = 10
+            with st.form("overview_search_form"):
+                fields = st.columns(6, gap="small")
+                keyword = fields[0].text_input("关键词", placeholder="如：数据分析", key="overview_keyword")
+                city_value = fields[1].selectbox("城市", _filter_options(jobs, "city", "全部城市"), key="overview_city")
+                education_value = fields[2].selectbox("学历要求", _filter_options(jobs, "education"), key="overview_education")
+                experience_value = fields[3].selectbox("工作经验", _filter_options(jobs, "experience"), key="overview_experience")
+                industry_value = fields[4].selectbox("行业领域", _filter_options(jobs, "industry"), key="overview_industry")
+                salary_choice = fields[5].selectbox("期望薪资", ["全部", "5K 以下", "5K-10K", "10K-15K", "15K-30K", "30K 以上"], key="overview_salary")
+                salary_filters = {
+                    "全部": {},
+                    "5K 以下": {"salary_max": 5000},
+                    "5K-10K": {"salary_min": 5000, "salary_max": 10000},
+                    "10K-15K": {"salary_min": 10000, "salary_max": 15000},
+                    "15K-30K": {"salary_min": 15000, "salary_max": 30000},
+                    "30K 以上": {"salary_min": 30000},
+                }[salary_choice]
+                action_col, reset_col, _ = st.columns([1, 1, 7])
+                submitted = action_col.form_submit_button("搜索", type="primary", use_container_width=True)
+                reset = reset_col.form_submit_button("重置")
+            if submitted:
+                st.session_state["overview_results"] = filter_jobs(jobs, {
+                    "keyword": keyword,
+                    "city": "" if city_value == "全部城市" else city_value,
+                    "education": "" if education_value == "全部" else education_value,
+                    "experience": "" if experience_value == "全部" else experience_value,
+                    "industry": "" if industry_value == "全部" else industry_value,
+                    **salary_filters,
+                })
+                st.session_state["overview_page"] = 1
+            if reset:
+                st.session_state.pop("overview_results", None)
+                st.session_state["overview_page"] = 1
+            result = st.session_state.get("overview_results", jobs)
+            if result.empty:
+                st.warning("没有找到符合条件的岗位，请放宽筛选条件。")
+                return
+            page_meta = paginate_jobs(
+                result,
+                page=int(st.session_state["overview_page"]),
+                page_size=int(st.session_state["overview_page_size"]),
+            )
+            st.session_state["overview_page"] = int(page_meta["page"])
+            table_columns = ["title", "company", "city", "salary_text", "education", "experience", "skills"]
+            labels = {"title": "职位名称", "company": "公司名称", "city": "城市", "salary_text": "薪资范围", "education": "学历", "experience": "经验", "skills": "技能要求"}
+            st.markdown(f'<div class="muted" style="font-size:.78rem;margin:.45rem 0 .5rem">共找到 {int(page_meta["total"]):,} 条岗位</div>', unsafe_allow_html=True)
+            st.dataframe(page_meta["items"][table_columns].rename(columns=labels), use_container_width=True, hide_index=True, height=330)
+            _render_pagination(page_meta, "overview")
+    with recommendation_col:
+        with st.container(border=True):
+            st.markdown('<div class="section-label">个性化推荐</div>', unsafe_allow_html=True)
+            recommendations = st.session_state.get("recommendation_results", {}).get("multifactor")
+            if recommendations is None or recommendations.empty:
+                st.markdown(
+                    '<div class="recommend-card"><div class="detail-title">等待学生画像</div><div class="muted" style="font-size:.8rem;line-height:1.7;margin-top:.45rem">进入“个性化推荐”填写目标岗位、技能和期望城市后，这里显示真实推荐结果。</div></div>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                _display_recommendations(recommendations.head(1), "multifactor")
 
 
 def _reset_search_widgets() -> None:
-    defaults = {"search_keyword": "", "search_city": "", "search_work_type": "", "search_experience": "", "search_education": "", "search_industry": "", "search_company_nature": "", "search_salary_min": 0, "search_salary_max": 0}
+    defaults = {
+        "search_keyword": "",
+        "search_city": "全部城市",
+        "search_work_type": "全部",
+        "search_experience": "全部",
+        "search_education": "全部",
+        "search_industry": "全部行业",
+        "search_company_nature": "全部",
+        "search_salary_min": "",
+        "search_salary_max": "",
+        "search_page": 1,
+        "search_page_size": 10,
+    }
     st.session_state.update(defaults)
     st.session_state.pop("search_results", None)
 
 
 def _render_search(jobs: pd.DataFrame) -> None:
     _page_header("岗位检索", jobs)
+    if "search_page" not in st.session_state:
+        st.session_state["search_page"] = 1
+    if "search_page_size" not in st.session_state:
+        st.session_state["search_page_size"] = 10
     with st.form("search_form"):
         col1, col2, col3 = st.columns(3)
         with col1:
             keyword = st.text_input("关键词", placeholder="岗位名称、公司、技能或描述", key="search_keyword")
-            city = st.text_input("城市", placeholder="如：杭州", key="search_city")
-            work_type = st.selectbox("工作方式", ["", "全职", "实习", "校招", "远程"], key="search_work_type")
+            city_value = st.selectbox("城市", _filter_options(jobs, "city", "全部城市"), key="search_city")
+            work_type_value = st.selectbox("工作方式", _filter_options(jobs, "work_type"), key="search_work_type")
         with col2:
-            experience = st.text_input("经验要求", placeholder="如：1-3年", key="search_experience")
-            education = st.text_input("学历", placeholder="如：本科", key="search_education")
-            industry = st.text_input("行业", placeholder="如：大数据", key="search_industry")
+            experience_value = st.selectbox("经验要求", _filter_options(jobs, "experience"), key="search_experience")
+            education_value = st.selectbox("学历", _filter_options(jobs, "education"), key="search_education")
+            industry_value = st.selectbox("行业", _filter_options(jobs, "industry", "全部行业"), key="search_industry")
         with col3:
-            company_nature = st.text_input("公司性质", placeholder="如：民营", key="search_company_nature")
-            salary_min = st.number_input("薪资下限（元/月）", min_value=0, step=1000, key="search_salary_min")
-            salary_max = st.number_input("薪资上限（元/月）", min_value=0, step=1000, key="search_salary_max")
+            company_nature_value = st.selectbox("公司性质", _filter_options(jobs, "company_nature"), key="search_company_nature")
+            salary_min_value = st.text_input("薪资下限（元/月）", placeholder="最低薪资，如：10000", key="search_salary_min")
+            salary_max_value = st.text_input("薪资上限（元/月）", placeholder="最高薪资，如：50000", key="search_salary_max")
         action1, action2, _ = st.columns([1, 1, 7])
         submitted = action1.form_submit_button("搜索", type="primary", use_container_width=True)
         reset = action2.form_submit_button("重置", on_click=_reset_search_widgets, use_container_width=True)
     if submitted:
         try:
-            st.session_state["search_results"] = filter_jobs(jobs, {"keyword": keyword, "city": city, "work_type": work_type, "experience": experience, "education": education, "industry": industry, "company_nature": company_nature, "salary_min": salary_min or None, "salary_max": salary_max or None})
+            st.session_state["search_results"] = filter_jobs(jobs, {
+                "keyword": keyword,
+                "city": "" if city_value == "全部城市" else city_value,
+                "work_type": "" if work_type_value == "全部" else work_type_value,
+                "experience": "" if experience_value == "全部" else experience_value,
+                "education": "" if education_value == "全部" else education_value,
+                "industry": "" if industry_value == "全部行业" else industry_value,
+                "company_nature": "" if company_nature_value == "全部" else company_nature_value,
+                "salary_min": _parse_salary(salary_min_value, "薪资下限"),
+                "salary_max": _parse_salary(salary_max_value, "薪资上限"),
+            })
+            st.session_state["search_page"] = 1
         except ValueError as exc:
             st.error(str(exc)); return
     if reset:
@@ -297,14 +476,27 @@ def _render_search(jobs: pd.DataFrame) -> None:
     if result.empty:
         st.warning("没有找到符合条件的岗位，请放宽筛选条件。"); return
     st.markdown(f'<div class="section-label">共找到 {len(result):,} 个岗位</div>', unsafe_allow_html=True)
+    page_meta = paginate_jobs(
+        result,
+        page=int(st.session_state.get("search_page", 1)),
+        page_size=int(st.session_state.get("search_page_size", 10)),
+    )
+    page_result = page_meta["items"]
+    st.session_state["search_page"] = int(page_meta["page"])
     table_col, detail_col = st.columns([2.35, 1], gap="small")
     display_columns = [column for column in ["title", "company", "city", "salary_text", "education", "experience", "skills"] if column in result.columns]
     labels = {"title": "职位名称", "company": "公司名称", "city": "城市", "salary_text": "薪资范围", "education": "学历", "experience": "经验", "skills": "技能要求"}
     with table_col:
-        st.dataframe(result[display_columns].rename(columns=labels), use_container_width=True, hide_index=True, height=510)
+        st.dataframe(page_result[display_columns].rename(columns=labels), use_container_width=True, hide_index=True, height=510)
+        _render_pagination(page_meta, "search")
     with detail_col:
-        selected_index = st.selectbox("选择岗位查看详情", range(len(result)), format_func=lambda index: f"{_safe(result.iloc[index].get('title'))} · {_safe(result.iloc[index].get('company'))}")
-        row = result.iloc[selected_index]
+        selected_index = st.selectbox(
+            "选择岗位查看详情",
+            range(len(page_result)),
+            format_func=lambda index: f"{_safe(page_result.iloc[index].get('title'))} · {_safe(page_result.iloc[index].get('company'))}",
+            key=f"search_selected_index_{int(page_meta['page'])}",
+        )
+        row = page_result.iloc[selected_index]
         st.markdown(
             f"""<div class="recommend-card"><div class="section-label">岗位详情</div><div class="detail-title">{_safe(row.get('title'))}</div>
             <div class="detail-company">{_safe(row.get('company'))}</div><div class="salary">{_safe(row.get('salary_text'))}</div>

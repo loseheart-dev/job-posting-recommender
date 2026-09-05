@@ -511,11 +511,3 @@ def _render_collection(jobs: pd.DataFrame) -> None:
         rows = [task.to_dict() for task in tasks]
         task_df = pd.DataFrame(rows)
         st.dataframe(task_df, width='stretch')
-
-
-
-
-
-
-
-

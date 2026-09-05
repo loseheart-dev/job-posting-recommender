@@ -513,41 +513,16 @@ def _render_search(jobs: pd.DataFrame) -> None:
 
 def _render_analysis(jobs: pd.DataFrame) -> None:
     _page_header("分析洞察", jobs)
-    col_left, col_mid, col_right = st.columns(3, gap="small")
-    with col_left:
+    chart_col, model_col = st.columns([1.35, 0.65], gap="medium")
+    with chart_col:
         with st.container(border=True):
             st.markdown('<div class="section-label">薪资分布</div>', unsafe_allow_html=True)
             try:
                 dist_df = _compact_salary_distribution(pd.DataFrame(salary_distribution(jobs))).sort_values("min")
                 fig = px.bar(dist_df, x="count", y="range", orientation="h", labels={"range": "薪资区间（元/月）", "count": "岗位数量"}, color_discrete_sequence=[COLORS["salary"]])
-                st.plotly_chart(_style_figure(fig, 315), use_container_width=True, config={"displayModeBar": False})
-            except ValueError as exc: st.warning(str(exc))
-        with st.container(border=True):
-            st.markdown('<div class="section-label">岗位能力需求图谱</div>', unsafe_allow_html=True)
-            try:
-                freq_df = pd.DataFrame(analysis_service.skill_graph(jobs)["skill_frequency"][:15], columns=["技能", "出现次数"]).sort_values("出现次数")
-                fig = px.bar(freq_df, x="出现次数", y="技能", orientation="h", color_discrete_sequence=[COLORS["primary"]])
                 st.plotly_chart(_style_figure(fig, 360), use_container_width=True, config={"displayModeBar": False})
-            except Exception as exc: st.warning(f"能力需求图谱不可用：{exc}")
-    with col_mid:
-        with st.container(border=True):
-            st.markdown('<div class="section-label">薪资影响因素</div>', unsafe_allow_html=True)
-            try: st.dataframe(analysis_service.salary_factor_analysis(jobs).head(10), use_container_width=True, hide_index=True, height=315)
-            except Exception as exc: st.warning(f"薪资因素分析不可用：{exc}")
-        with st.container(border=True):
-            st.markdown('<div class="section-label">岗位聚类</div>', unsafe_allow_html=True)
-            try:
-                _, summaries = analysis_service.job_cluster(jobs)
-                for cluster_id, info in list(summaries.items())[:4]:
-                    st.markdown(f"""<div class="profile-summary"><strong>群组 {html.escape(str(cluster_id))}</strong><div class="meta-grid">
-                    <div>岗位数量<br><strong>{_safe(info.get('count'))}</strong></div><div>平均薪资<br><strong class="salary">{_safe(info.get('salary_avg'))}</strong></div>
-                    <div>代表城市<br><strong>{_safe(info.get('dominant_city'))}</strong></div><div>高频技能<br><strong>{_safe('、'.join(info.get('top_skills', [])))}</strong></div></div></div>""", unsafe_allow_html=True)
-            except Exception as exc: st.warning(f"岗位聚类不可用：{exc}")
-    with col_right:
-        with st.container(border=True):
-            st.markdown('<div class="section-label">招聘企业画像</div>', unsafe_allow_html=True)
-            try: st.dataframe(analysis_service.company_profile(jobs).head(10), use_container_width=True, hide_index=True, height=315)
-            except Exception as exc: st.warning(f"企业画像不可用：{exc}")
+            except ValueError as exc: st.warning(str(exc))
+    with model_col:
         with st.container(border=True):
             st.markdown('<div class="section-label">薪资预测模型评估</div>', unsafe_allow_html=True)
             try:
@@ -557,6 +532,75 @@ def _render_analysis(jobs: pd.DataFrame) -> None:
                 with metric_cols[1]: _kpi("R²", f"{metrics['r2']:.3f}", "拟合优度", "success")
                 st.caption("随机森林模型在独立测试集上的评估指标。")
             except Exception as exc: st.warning(f"薪资预测不可用：{exc}")
+
+    with st.container(border=True):
+        st.markdown('<div class="section-label">薪资影响因素</div>', unsafe_allow_html=True)
+        try:
+            salary_factors = analysis_service.salary_factor_analysis(jobs).head(10).rename(
+                columns={
+                    "factor": "影响因素",
+                    "impact_direction": "影响方向",
+                    "importance": "重要性",
+                    "description": "说明",
+                }
+            )
+            factor_names = {
+                "education": "学历",
+                "experience": "经验",
+                "city": "城市",
+                "work_type": "工作方式",
+                "company_nature": "公司性质",
+                "company_size": "公司规模",
+                "industry": "行业",
+            }
+            for raw_name, display_name in factor_names.items():
+                salary_factors["影响因素"] = salary_factors["影响因素"].str.replace(
+                    f"{raw_name}-", f"{display_name} · ", regex=False
+                )
+                salary_factors["说明"] = salary_factors["说明"].str.replace(
+                    f"“{raw_name}”", f"“{display_name}”", regex=False
+                )
+            salary_factors["影响方向"] = salary_factors["影响方向"].replace(
+                {"higher": "偏高", "lower": "偏低", "neutral": "接近整体水平"}
+            )
+            st.dataframe(salary_factors, use_container_width=True, hide_index=True, height=360)
+        except Exception as exc: st.warning(f"薪资因素分析不可用：{exc}")
+
+    skill_col, cluster_col = st.columns([1.15, 0.85], gap="medium")
+    with skill_col:
+        with st.container(border=True):
+            st.markdown('<div class="section-label">岗位能力需求图谱</div>', unsafe_allow_html=True)
+            try:
+                freq_df = pd.DataFrame(analysis_service.skill_graph(jobs)["skill_frequency"][:15], columns=["技能", "出现次数"]).sort_values("出现次数")
+                fig = px.bar(freq_df, x="出现次数", y="技能", orientation="h", color_discrete_sequence=[COLORS["primary"]])
+                st.plotly_chart(_style_figure(fig, 360), use_container_width=True, config={"displayModeBar": False})
+            except Exception as exc: st.warning(f"能力需求图谱不可用：{exc}")
+    with cluster_col:
+        with st.container(border=True):
+            st.markdown('<div class="section-label">岗位聚类</div>', unsafe_allow_html=True)
+            try:
+                _, summaries = analysis_service.job_cluster(jobs)
+                for cluster_id, info in list(summaries.items())[:4]:
+                    st.markdown(f"""<div class="profile-summary"><strong>群组 {html.escape(str(cluster_id))}</strong><div class="meta-grid">
+                    <div>岗位数量<br><strong>{_safe(info.get('count'))}</strong></div><div>平均薪资<br><strong class="salary">{_safe(info.get('salary_avg'))}</strong></div>
+                    <div>代表城市<br><strong>{_safe(info.get('dominant_city'))}</strong></div><div>高频技能<br><strong>{_safe('、'.join(info.get('top_skills', [])))}</strong></div></div></div>""", unsafe_allow_html=True)
+            except Exception as exc: st.warning(f"岗位聚类不可用：{exc}")
+
+    with st.container(border=True):
+        st.markdown('<div class="section-label">招聘企业画像</div>', unsafe_allow_html=True)
+        try:
+            company_profiles = analysis_service.company_profile(jobs).head(10).rename(
+                columns={
+                    "company": "公司名称",
+                    "company_size": "公司规模",
+                    "company_nature": "公司性质",
+                    "industry": "所属行业",
+                    "salary_summary": "薪资概况",
+                    "skill_summary": "技能概况",
+                }
+            )
+            st.dataframe(company_profiles, use_container_width=True, hide_index=True, height=360)
+        except Exception as exc: st.warning(f"企业画像不可用：{exc}")
 
 
 def _render_recommendation(jobs: pd.DataFrame) -> None:

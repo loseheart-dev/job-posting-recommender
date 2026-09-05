@@ -1,6 +1,10 @@
 from src.algorithms._common import encode_job_features
 from src.algorithms.clustering import cluster_jobs
-from src.data.market import add_job_category, classify_job_category, stratified_sample_jobs
+from src.data.market import (
+    MARKET_SUPPLEMENT_KEYWORDS,
+    add_job_category,
+    classify_job_category,
+)
 from src.data.schema import JOB_COLUMNS
 from src.services.job_service import summarize_jobs
 from tests.sample_data import build_sample_frame
@@ -15,21 +19,9 @@ def test_classify_job_category_prefers_title_over_industry() -> None:
     assert classify_job_category("岗位", "财务/审计/税务") == "财务"
 
 
-def test_stratified_sample_is_reproducible_and_reports_shortfall() -> None:
-    jobs = build_sample_frame().head(6).copy()
-    jobs["industry"] = ""
-    jobs.loc[:5, "title"] = [
-        "财务专员", "销售顾问", "行政文员", "机械工程师", "其他职位", "Java开发工程师"
-    ]
-    sampled_a, report_a = stratified_sample_jobs(jobs, per_category=2, random_state=7)
-    sampled_b, report_b = stratified_sample_jobs(jobs, per_category=2, random_state=7)
-
-    assert tuple(sampled_a.columns) == JOB_COLUMNS
-    assert sampled_a["job_id"].tolist() == sampled_b["job_id"].tolist()
-    assert report_a == report_b
-    assert report_a["output_count"] == 6
-    assert report_a["shortfall"] == ["技术", "财务", "销售", "行政", "制造", "其他"]
-    assert set(report_a["after"].values()) == {1}
+def test_supplement_keywords_cover_shortfall_categories() -> None:
+    assert set(("财务", "销售", "行政")) <= MARKET_SUPPLEMENT_KEYWORDS.keys()
+    assert all(MARKET_SUPPLEMENT_KEYWORDS[category] for category in MARKET_SUPPLEMENT_KEYWORDS)
 
 
 def test_cluster_uses_category_features_and_explains_category() -> None:

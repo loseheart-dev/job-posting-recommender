@@ -1,4 +1,4 @@
-"""岗位市场分类与分层抽样工具。
+"""岗位市场分类与定向补采关键词。
 
 岗位类别是由标题和行业推导的分析字段，不改变冻结的 21 列岗位接口。
 分类优先使用岗位标题，行业只在标题无法判断时作为兜底，避免技能标签中的
@@ -11,9 +11,15 @@ from typing import Any
 
 import pandas as pd
 
-from src.data.schema import JOB_COLUMNS
-
 JOB_CATEGORIES = ("技术", "财务", "销售", "行政", "制造", "其他")
+
+MARKET_SUPPLEMENT_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "技术": ("Java开发", "Python开发", "数据分析", "测试工程师", "运维工程师", "前端开发"),
+    "财务": ("财务专员", "会计", "出纳", "审计", "税务", "财务分析", "会计助理"),
+    "销售": ("销售代表", "销售顾问", "客户经理", "商务拓展", "渠道销售", "电话销售", "销售经理"),
+    "行政": ("行政专员", "人事专员", "招聘专员", "前台", "文员", "行政助理", "客服"),
+    "制造": ("机械工程师", "电气工程师", "生产管理", "质量工程师", "工艺工程师", "设备工程师", "自动化工程师"),
+}
 
 _CATEGORY_PATTERNS: dict[str, tuple[str, ...]] = {
     # 制造业先于技术业判断，避免“机械工程师”被通用工程词误归技术。
@@ -85,56 +91,3 @@ def add_job_category(jobs: pd.DataFrame) -> pd.DataFrame:
         for raw_title, raw_industry in zip(title, industry, strict=False)
     ]
     return result
-
-
-def stratified_sample_jobs(
-    jobs: pd.DataFrame,
-    per_category: int = 500,
-    random_state: int = 42,
-) -> tuple[pd.DataFrame, dict[str, object]]:
-    """按岗位类别等额抽样，返回标准岗位列和可审计的抽样报告。
-
-    每类最多抽 ``per_category`` 条；某类样本不足时保留该类全部记录，报告中
-    的 ``shortfall`` 会明确指出未达到目标的类别。抽样使用固定随机种子并按
-    原始行号恢复顺序，便于复现和与来源数据核对。
-    """
-    if not isinstance(jobs, pd.DataFrame):
-        raise TypeError("岗位数据必须是 pandas.DataFrame")
-    if isinstance(per_category, bool) or not isinstance(per_category, int) or per_category < 1:
-        raise ValueError("per_category 必须是正整数")
-    missing = [column for column in ("job_id", "title") if column not in jobs.columns]
-    if missing:
-        raise ValueError(f"岗位表缺少必填字段: {', '.join(missing)}")
-    if jobs.empty:
-        empty = jobs.loc[:, [column for column in JOB_COLUMNS if column in jobs.columns]].copy()
-        return empty, {
-            "input_count": 0,
-            "output_count": 0,
-            "target_per_category": per_category,
-            "random_state": random_state,
-            "before": {},
-            "after": {},
-            "shortfall": list(JOB_CATEGORIES),
-        }
-
-    categorized = add_job_category(jobs)
-    before = categorized["job_category"].value_counts().reindex(JOB_CATEGORIES, fill_value=0).astype(int)
-    pieces: list[pd.DataFrame] = []
-    for category in JOB_CATEGORIES:
-        group = categorized[categorized["job_category"] == category]
-        if group.empty:
-            continue
-        count = min(per_category, len(group))
-        pieces.append(group.sample(n=count, random_state=random_state))
-    sampled = pd.concat(pieces).sort_index()
-    output = sampled.loc[:, [column for column in JOB_COLUMNS if column in sampled.columns]].reset_index(drop=True)
-    after = sampled["job_category"].value_counts().reindex(JOB_CATEGORIES, fill_value=0).astype(int)
-    return output, {
-        "input_count": int(len(jobs)),
-        "output_count": int(len(output)),
-        "target_per_category": per_category,
-        "random_state": random_state,
-        "before": {category: int(before[category]) for category in JOB_CATEGORIES},
-        "after": {category: int(after[category]) for category in JOB_CATEGORIES},
-        "shortfall": [category for category in JOB_CATEGORIES if int(before[category]) < per_category],
-    }

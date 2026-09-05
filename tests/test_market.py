@@ -1,6 +1,7 @@
 from src.algorithms._common import encode_job_features
 from src.algorithms.clustering import cluster_jobs
 from src.data.market import (
+    MARKET_SUPPLEMENT_CITIES,
     MARKET_SUPPLEMENT_KEYWORDS,
     add_job_category,
     classify_job_category,
@@ -20,7 +21,8 @@ def test_classify_job_category_prefers_title_over_industry() -> None:
 
 
 def test_supplement_keywords_cover_shortfall_categories() -> None:
-    assert set(("财务", "销售", "行政")) <= MARKET_SUPPLEMENT_KEYWORDS.keys()
+    assert set(("财务", "销售", "行政", "制造", "其他")) <= MARKET_SUPPLEMENT_KEYWORDS.keys()
+    assert len(MARKET_SUPPLEMENT_CITIES) >= 10
     assert all(MARKET_SUPPLEMENT_KEYWORDS[category] for category in MARKET_SUPPLEMENT_KEYWORDS)
 
 

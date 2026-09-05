@@ -18,20 +18,28 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from src.data.boss_adapter import load_upstream_records, map_boss_records
 from src.data.cleaner import clean_jobs_with_report
 from src.data.loader import load_jobs
-from src.data.market import JOB_CATEGORIES, MARKET_SUPPLEMENT_KEYWORDS, add_job_category
+from src.data.market import (
+    JOB_CATEGORIES,
+    MARKET_SUPPLEMENT_CITIES,
+    MARKET_SUPPLEMENT_KEYWORDS,
+    add_job_category,
+)
 
 
-def _keywords(categories: list[str]) -> list[str]:
+def _keywords(categories: list[str], per_category: int = 0) -> list[str]:
     seen: list[str] = []
     for category in categories:
-        for keyword in MARKET_SUPPLEMENT_KEYWORDS[category]:
+        category_keywords = MARKET_SUPPLEMENT_KEYWORDS[category]
+        if per_category:
+            category_keywords = category_keywords[:per_category]
+        for keyword in category_keywords:
             if keyword not in seen:
                 seen.append(keyword)
     return seen
 
 
 def collect(args: argparse.Namespace) -> None:
-    keywords = _keywords(args.categories)
+    keywords = _keywords(args.categories, args.keywords_per_category)
     raw_dir = args.raw_dir.resolve()
     traversal_log = args.traversal_log.resolve()
     command = [
@@ -131,10 +139,16 @@ def build_parser() -> argparse.ArgumentParser:
     collect_parser.add_argument(
         "--categories",
         nargs="+",
-        choices=JOB_CATEGORIES[:-1],
-        default=["财务", "销售", "行政", "制造"],
+        choices=JOB_CATEGORIES,
+        default=["财务", "销售", "行政", "制造", "其他"],
     )
-    collect_parser.add_argument("--cities", nargs="+", required=True)
+    collect_parser.add_argument("--cities", nargs="+", default=list(MARKET_SUPPLEMENT_CITIES))
+    collect_parser.add_argument(
+        "--keywords-per-category",
+        type=int,
+        default=7,
+        help="每类使用前 N 个关键词；传 0 使用该类全部关键词",
+    )
     collect_parser.add_argument("--pages", type=int, default=1)
     collect_parser.add_argument("--max-details", type=int, default=5)
     collect_parser.add_argument("--no-detail", action="store_true", help="只采集列表，跳过详情页")
@@ -158,6 +172,8 @@ def main() -> None:
     args = build_parser().parse_args()
     if args.command == "collect" and not 1 <= args.pages <= 10:
         raise SystemExit("--pages 必须在 1 到 10 之间")
+    if args.command == "collect" and args.keywords_per_category < 0:
+        raise SystemExit("--keywords-per-category 不能小于 0")
     args.func(args)
 
 

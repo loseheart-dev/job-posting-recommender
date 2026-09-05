@@ -1,6 +1,6 @@
 import unittest
 
-from src.ui.pages import _format_salary_summary, _format_skill_summary, _is_about_page_url
+from src.ui.pages import ABOUT_URL, _format_salary_summary, _format_skill_summary, _is_about_page_url
 
 
 class UiFormattingTest(unittest.TestCase):
@@ -17,6 +17,7 @@ class UiFormattingTest(unittest.TestCase):
     def test_about_page_url_is_exact(self) -> None:
         self.assertTrue(_is_about_page_url("http://localhost:8501/about.html"))
         self.assertFalse(_is_about_page_url("http://localhost:8501/"))
+        self.assertEqual(ABOUT_URL, "/about.html")
 
 
 if __name__ == "__main__":

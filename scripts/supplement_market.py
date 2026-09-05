@@ -128,7 +128,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     collect_parser = subparsers.add_parser("collect", help="按类别关键词调用 BOSS 采集器")
     collect_parser.add_argument("--upstream-repo", type=Path, required=True)
-    collect_parser.add_argument("--categories", nargs="+", choices=JOB_CATEGORIES[:-1], default=["财务", "销售", "行政"])
+    collect_parser.add_argument(
+        "--categories",
+        nargs="+",
+        choices=JOB_CATEGORIES[:-1],
+        default=["财务", "销售", "行政", "制造"],
+    )
     collect_parser.add_argument("--cities", nargs="+", required=True)
     collect_parser.add_argument("--pages", type=int, default=1)
     collect_parser.add_argument("--max-details", type=int, default=5)

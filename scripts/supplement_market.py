@@ -32,6 +32,8 @@ def _keywords(categories: list[str]) -> list[str]:
 
 def collect(args: argparse.Namespace) -> None:
     keywords = _keywords(args.categories)
+    raw_dir = args.raw_dir.resolve()
+    traversal_log = args.traversal_log.resolve()
     command = [
         sys.executable,
         str(PROJECT_ROOT / "scripts" / "run_boss_tasks.py"),
@@ -40,9 +42,9 @@ def collect(args: argparse.Namespace) -> None:
         "--python",
         args.python,
         "--output-dir",
-        str(args.raw_dir),
+        str(raw_dir),
         "--traversal-log",
-        str(args.traversal_log),
+        str(traversal_log),
         "--strategy",
         args.strategy,
         "--keywords",
@@ -56,10 +58,12 @@ def collect(args: argparse.Namespace) -> None:
         "--cdp-port",
         str(args.cdp_port),
     ]
+    if args.no_detail:
+        command.append("--no-detail")
     completed = subprocess.run(command, cwd=PROJECT_ROOT, check=False)
     if completed.returncode:
         raise SystemExit(completed.returncode)
-    print(json.dumps({"categories": args.categories, "keywords": keywords, "raw_dir": str(args.raw_dir)}, ensure_ascii=False, indent=2))
+    print(json.dumps({"categories": args.categories, "keywords": keywords, "raw_dir": str(raw_dir)}, ensure_ascii=False, indent=2))
 
 
 def _optional_records(path: Path) -> list[dict[str, object]]:
@@ -128,6 +132,7 @@ def build_parser() -> argparse.ArgumentParser:
     collect_parser.add_argument("--cities", nargs="+", required=True)
     collect_parser.add_argument("--pages", type=int, default=1)
     collect_parser.add_argument("--max-details", type=int, default=5)
+    collect_parser.add_argument("--no-detail", action="store_true", help="只采集列表，跳过详情页")
     collect_parser.add_argument("--cdp-port", type=int, default=9222)
     collect_parser.add_argument("--python", default=sys.executable, help="运行上游脚本的 Python 路径")
     collect_parser.add_argument("--strategy", choices=("bfs", "dfs"), default="bfs")

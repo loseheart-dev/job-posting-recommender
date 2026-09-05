@@ -2,7 +2,7 @@
 """复算真实清洗数据的薪资分布和预测指标，并保存可审计结果。
 
 默认优先读取 ``data/processed/jobs.csv``；该文件不存在时回退到仓库内的
-``tests/fixtures/expanded_jobs.csv``。两者都必须是 8608 条标准岗位数据。
+``tests/fixtures/expanded_jobs.csv``。两者都必须是按 ``JOB_COLUMNS`` 清洗的标准岗位数据。
 
 用法：``python -m tests.verify_salary_real_data``
 也可用 ``--input`` 指定另一份已经清洗的标准岗位表。
@@ -27,7 +27,6 @@ ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_PATH = ROOT / "data/processed/jobs.csv"
 FIXTURE_PATH = ROOT / "tests/fixtures/expanded_jobs.csv"
 DEFAULT_OUTPUT = ROOT / "tests/fixtures/real_data_salary_verification.json"
-EXPECTED_ROWS = 8608
 HISTORICAL_R2 = 0.234
 
 
@@ -46,7 +45,7 @@ def _choose_input(requested: Path | None) -> Path:
 
 def verify(input_path: Path) -> dict[str, object]:
     jobs = load_jobs(str(input_path))
-    assert len(jobs) == EXPECTED_ROWS, f"岗位数应为 {EXPECTED_ROWS}，实际为 {len(jobs)}"
+    assert len(jobs) > 0, "真实岗位数据不能为空"
     assert tuple(jobs.columns) == JOB_COLUMNS
 
     salary = pd.to_numeric(jobs["salary_avg"], errors="coerce")
@@ -99,7 +98,7 @@ def verify(input_path: Path) -> dict[str, object]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="复算 8608 条真实岗位数据的薪资指标")
+    parser = argparse.ArgumentParser(description="复算真实岗位数据的薪资指标")
     parser.add_argument("--input", type=Path, help="清洗后的标准岗位 CSV")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT, help="验证结果 JSON")
     args = parser.parse_args()

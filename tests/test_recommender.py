@@ -68,6 +68,7 @@ class RecommenderBaselineTest(unittest.TestCase):
         # 岗位 1 与画像（数据分析 + Python/SQL + 上海 + 在校生）最匹配，应排第一
         assert result.iloc[0]["job_id"] == "1"
         assert result.iloc[0]["matched_skills"] in ("Python;SQL", "SQL;Python")
+        assert result.iloc[0]["missing_skills"] == "pandas"
         assert "文本相似度" in result.iloc[0]["reason"]
         assert "匹配技能" in result.iloc[0]["reason"]
         assert all(result["missing_skills"].notna())
@@ -80,8 +81,9 @@ class RecommenderBaselineTest(unittest.TestCase):
         java_result = recommend_jobs(java_profile, jobs)
         # 画像变化必须引起排序或匹配技能变化，结果不能写死
         assert not data_result.equals(java_result)
-        assert java_result.iloc[0]["matched_skills"] == ""
-        assert java_result.iloc[0]["missing_skills"] == "Java;Spring"
+        java_job = java_result[java_result["job_id"] == "3"].iloc[0]
+        assert java_job["matched_skills"] == ""
+        assert java_job["missing_skills"] == "Linux;Python"
 
     def test_city_and_experience_boost_reason(self) -> None:
         jobs = sample_jobs()
@@ -125,11 +127,25 @@ class RecommenderBaselineTest(unittest.TestCase):
         result = recommend_jobs({"target_role": "数据分析", "skills": "Python;SQL"}, jobs)
         first_row = result[result["job_id"] == "1"].iloc[0]
         assert first_row["matched_skills"] == ""  # NA 技能不被计入匹配
-        assert first_row["missing_skills"] == "Python;SQL"
+        assert first_row["missing_skills"] == ""
 
 
 class RecommenderMultifactorTest(unittest.TestCase):
     """多因素推荐 recommend_jobs_multifactor。"""
+
+    def test_role_name_excludes_domain_only_skill_matches(self) -> None:
+        jobs = pd.concat([sample_jobs(), sample_jobs()], ignore_index=True)
+        for index in range(5):
+            jobs.loc[index, ["title", "skills"]] = [f"财务岗位{index}", "财务;会计"]
+        jobs.loc[5, ["title", "skills"]] = ["react前端开发", "React;财务"]
+
+        result = recommend_jobs_multifactor(
+            {"target_role": "财务", "skills": "财务"}, jobs, top_k=5
+        )
+
+        self.assertEqual(len(result), 5)
+        self.assertTrue(result["title"].str.contains("财务", regex=False).all())
+        self.assertTrue((result["matched_skills"] == "财务").all())
 
     def test_weights_sum_to_one(self) -> None:
         # 权重约定锁定：组合分权重之和必须为 1（与模块文档一致）
@@ -176,7 +192,8 @@ class RecommenderMultifactorTest(unittest.TestCase):
         # 画像变化必须改变输出，不能写死
         assert not data_result.equals(java_result)
         assert data_result.iloc[0]["job_id"] == "1"  # 数据画像最匹配数据分析岗
-        assert java_result.iloc[0]["missing_skills"] == "Java;Spring"  # Java 画像技能全缺失
+        java_job = java_result[java_result["job_id"] == "3"].iloc[0]
+        assert java_job["missing_skills"] == "Linux;Python"  # 输出岗位要求但画像未掌握的技能
         assert any("薪资区间低于期望" in reason for reason in java_result["reason"])  # 20-30K 期望高于部分岗位
         assert any("薪资区间符合期望" in reason for reason in java_result["reason"])  # 岗位 2 区间命中
 

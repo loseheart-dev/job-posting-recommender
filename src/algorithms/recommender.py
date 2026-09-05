@@ -5,9 +5,9 @@ MULTI_FACTOR_RECOMMENDATION_COLUMNS。
 
 - recommend_jobs：TF-IDF 基线，技能/城市/经验加权，供联调契约使用；
 - recommend_jobs_multifactor：多因素推荐，组合分权重之和为 1（见 WEIGHTS）：
-  0.35 文本相似度（target_role） + 0.25 技能命中率 + 0.10 城市 + 0.05 经验
-  + 0.05 学历 + 0.05 专业 + 0.15 薪资区间；match_probability 为组合分的
-  sigmoid 归一化（0-1）。学校、工作年限、工作经历用于画像说明，不直接
+  0.35 文本相似度（target_role） + 0.25 技能 F1 + 0.10 城市 + 0.05 经验
+  + 0.05 学历 + 0.05 专业 + 0.15 薪资区间；match_probability 为组合分本身
+  （0-1）。学校、工作年限、工作经历用于画像说明，不直接
   匹配岗位；岗位表只校验必要字段（REQUIRED_JOB_COLUMNS），其余列缺失或
   含缺失值时按空字符串处理，不中断推荐。
 """
@@ -108,6 +108,49 @@ def _skill_set(value: object) -> set[str]:
     return {skill.strip() for skill in _text(value).split(";") if skill.strip()}
 
 
+_ROLE_SUFFIXES = ("工程师", "专员", "经理", "助理", "实习生", "师", "岗位")
+
+
+def _role_core(value: object) -> str:
+    """Remove common title suffixes so ``数据分析工程师`` matches its title family."""
+    role = _text(value).lower()
+    for suffix in _ROLE_SUFFIXES:
+        if role.endswith(suffix) and len(role) > len(suffix):
+            return role[: -len(suffix)].strip()
+    return role
+
+
+def _restrict_to_role(
+    jobs: pd.DataFrame, target_role: str, limit: int | None = None
+) -> pd.DataFrame:
+    """When the data has matching titles, keep recommendations in that title family.
+
+    Domain labels in a job's ``skills`` field (for example ``财务`` on a banking
+    Java role) are not enough to establish that the job itself is a target role.
+    If no title matches, retain the full set so fuzzy or newly named roles still
+    use the text scorer.
+    """
+    role = _text(target_role).lower()
+    if not role:
+        return jobs
+    core = _role_core(role)
+    titles = jobs["title"].map(_text).str.lower()
+    mask = titles.str.contains(role, regex=False)
+    if core and core != role:
+        mask |= titles.str.contains(core, regex=False)
+    enough_matches = limit is None or int(mask.sum()) >= min(limit, len(jobs))
+    return jobs.loc[mask].reset_index(drop=True) if mask.any() and enough_matches else jobs
+
+
+def _skill_match_score(profile_skills: set[str], job_skills: set[str], matched: set[str]) -> float:
+    """Return a symmetric skill F1 score, penalizing many unmatched job skills."""
+    if not profile_skills or not job_skills or not matched:
+        return 0.0
+    recall = len(matched) / len(profile_skills)
+    precision = len(matched) / len(job_skills)
+    return 2 * precision * recall / (precision + recall)
+
+
 def _profile_has_content(profile: StudentProfile) -> bool:
     """任意画像字段有效即可参与多因素计算，不限于文本/技能。"""
     return any(
@@ -155,14 +198,15 @@ def recommend_jobs(
 
     正常输入返回按组合分降序的结果；空岗位表或画像无文本/技能内容时返回
     空表；岗位表缺必要字段时抛出明确错误。与 filter_jobs 约定一致，不修改
-    输入数据。排序依据 combo = 文本余弦相似度 + 0.2 * 技能命中率 + 0.1 *
-    城市匹配 + 0.05 * 经验匹配；similarity_score 列保留原始余弦相似度。
+    输入数据。排序依据 combo = 文本余弦相似度 + 0.2 * 技能 F1 + 0.1 * 城市
+    匹配 + 0.05 * 经验匹配；similarity_score 列保留原始余弦相似度。
     """
     if isinstance(profile, dict):
         profile = StudentProfile.from_mapping(profile)
     result = _canonical_jobs(jobs)
     if result.empty or (not profile.target_role and not profile.skills):
         return pd.DataFrame(columns=RECOMMENDATION_COLUMNS)
+    result = _restrict_to_role(result, profile.target_role, top_k)
 
     similarities = _text_similarity(_profile_text(profile), _job_texts(result))
     if similarities is None:
@@ -176,11 +220,11 @@ def recommend_jobs(
     for row, similarity in zip(result.itertuples(index=False), similarities, strict=False):
         job_skills = _skill_set(row.skills)
         matched = sorted(profile_skills & job_skills)
-        missing = sorted(profile_skills - job_skills)
-        hit_ratio = len(matched) / max(len(profile_skills), 1)
+        missing = sorted(job_skills - profile_skills)
+        skill_score = _skill_match_score(profile_skills, job_skills, set(matched))
         city_ok = bool(city) and city.lower() in _text(row.city).lower()
         experience_ok = bool(experience) and experience.lower() in _text(row.experience).lower()
-        combo = float(similarity) + 0.2 * hit_ratio + 0.1 * city_ok + 0.05 * experience_ok
+        combo = float(similarity) + 0.2 * skill_score + 0.1 * city_ok + 0.05 * experience_ok
         rows.append(
             {
                 "job_id": row.job_id,
@@ -269,13 +313,16 @@ def recommend_jobs_multifactor(
     只校验必要字段（REQUIRED_JOB_COLUMNS）；company_size/company_nature/
     industry 等其余列缺失或含缺失值时按空字符串处理，不中断推荐。任意画像
     字段有效即可参与计算（权重见 WEIGHTS，之和为 1），match_probability 为
-    组合分 sigmoid 归一化（0-1）。画像完全为空或岗位表为空时返回空表。
+    组合分本身（0-1）。存在目标岗位名称命中时，仅在该岗位族内排序；岗位名称
+    无命中时保留全部岗位，避免新岗位命名导致无结果。画像完全为空或岗位表为空
+    时返回空表。
     """
     if isinstance(profile, dict):
         profile = StudentProfile.from_mapping(profile)
     result = _multifactor_jobs(jobs)
     if result.empty or not _profile_has_content(profile):
         return pd.DataFrame(columns=MULTI_FACTOR_RECOMMENDATION_COLUMNS)
+    result = _restrict_to_role(result, profile.target_role, top_k)
 
     profile_skills = set(profile.skills)
     similarities = _text_similarity(profile.target_role, _job_texts(result)) if profile.target_role else None
@@ -284,8 +331,8 @@ def recommend_jobs_multifactor(
     for index, row in enumerate(result.itertuples(index=False)):
         job_skills = _skill_set(row.skills)
         matched = sorted(profile_skills & job_skills)
-        missing_skills = sorted(profile_skills - job_skills)
-        hit_ratio = len(matched) / max(len(profile_skills), 1)
+        missing_skills = sorted(job_skills - profile_skills)
+        skill_score = _skill_match_score(profile_skills, job_skills, set(matched))
         city_ok = bool(profile.preferred_city) and profile.preferred_city.lower() in _text(getattr(row, "city", "")).lower()
         experience_ok = bool(profile.experience) and profile.experience.lower() in _text(getattr(row, "experience", "")).lower()
         education_ok = bool(profile.education) and profile.education.lower() in _text(getattr(row, "education", "")).lower()
@@ -295,14 +342,14 @@ def recommend_jobs_multifactor(
         salary_ok = _salary_overlap(profile.expected_salary_min, profile.expected_salary_max, row.salary_min, row.salary_max)
         combo = (
             WEIGHTS["text_similarity"] * similarity
-            + WEIGHTS["skill_hit"] * hit_ratio
+            + WEIGHTS["skill_hit"] * skill_score
             + WEIGHTS["city"] * city_ok
             + WEIGHTS["experience"] * experience_ok
             + WEIGHTS["education"] * education_ok
             + WEIGHTS["major"] * major_ok
             + WEIGHTS["salary"] * (1.0 if salary_ok else 0.0)
         )
-        probability = round(1.0 / (1.0 + math.exp(-combo)), 3)
+        probability = round(max(0.0, min(1.0, combo)), 3)
         salary_range = _salary_range(row.salary_min, row.salary_max)
         rows.append(
             {

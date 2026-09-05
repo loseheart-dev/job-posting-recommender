@@ -29,6 +29,7 @@ COLORS = {
 PAGES = ("市场概览", "岗位检索", "分析洞察", "个性化推荐", "采集管理")
 DATA_PATH = Path("data/processed/jobs.csv")
 ABOUT_PAGE_PATH = Path(__file__).resolve().parents[2] / "about.html"
+ABOUT_URL = "/about.html"
 
 
 def _is_about_page_url(url: object) -> bool:
@@ -69,6 +70,11 @@ def _apply_style() -> None:
             box-shadow:inset 3px 0 0 var(--primary);
         }}
         [data-testid="stSidebar"] [role="radiogroup"] label > div:first-child {{ display:none; }}
+        .sidebar-about-link {{
+            display:block; min-height:2.9rem; padding:.7rem .9rem; margin-top:.35rem;
+            border-radius:8px; color:var(--text); text-decoration:none;
+        }}
+        .sidebar-about-link:hover {{ background:#EDF4FF; color:var(--primary); }}
         h1,h2,h3,h4,p {{ color:var(--text); }}
         h2 {{ font-size:1.28rem!important; }} h3 {{ font-size:1.02rem!important; }}
         [data-testid="stCaptionContainer"] {{ color:var(--muted); }}
@@ -130,9 +136,6 @@ def _apply_style() -> None:
         .site-grid {{ display:grid; grid-template-columns:1.3fr 1fr 1fr .7fr .6fr .8fr; gap:1rem; margin-top:.75rem; color:var(--muted); font-size:.78rem; }}
         .site-grid strong {{ display:block; color:var(--text); margin-top:.2rem; font-weight:550; }}
 .status-pill {{ display:inline-block; margin-left:.5rem; padding:.18rem .45rem; border-radius:5px; background:#EAF8F1; color:#17845A; font-size:.72rem; font-weight:700; }}
-.about-link-wrap {{ display:flex; justify-content:flex-end; margin:-.35rem 0 .8rem; }}
-.about-link {{ color:var(--primary); font-size:.82rem; font-weight:650; text-decoration:none; }}
-.about-link:hover {{ text-decoration:underline; }}
 @media (max-width:900px) {{
             section[data-testid="stSidebar"] {{ width:12rem!important; min-width:12rem!important; }}
             .page-header,.page-heading {{ align-items:flex-start; flex-direction:column; gap:.3rem; }}
@@ -256,6 +259,10 @@ def _data_updated() -> str:
 def _sidebar(job_count: int) -> str:
     st.sidebar.markdown('<div class="brand"><div class="brand-name">Career Signal</div><div class="brand-subtitle">岗位智能工作台</div></div>', unsafe_allow_html=True)
     page = st.sidebar.radio("导航", PAGES, label_visibility="collapsed")
+    st.sidebar.markdown(
+        f'<a class="sidebar-about-link" href="{ABOUT_URL}" target="_self">项目介绍</a>',
+        unsafe_allow_html=True,
+    )
     site = site_service.ensure_default_site()
     tasks = task_service.list_tasks(site.site_id)
     active_tasks = [task for task in tasks if task.status in {"pending", "running"}]
@@ -382,10 +389,6 @@ def render_home(jobs: pd.DataFrame) -> None:
 
 def _render_overview(jobs: pd.DataFrame) -> None:
     _page_header("面向大学生求职的岗位数据分析与个性化推荐系统", jobs)
-    st.markdown(
-        '<div class="about-link-wrap"><a class="about-link" href="/about.html" target="_self">项目介绍 ↗</a></div>',
-        unsafe_allow_html=True,
-    )
     summary = summarize_jobs(jobs)
     job_count, salary_avg, salary_count, top_skills = summary["job_count"], summary["salary_avg"], summary["salary_count"], summary["top_skills"]
     salary_coverage = salary_count / job_count * 100 if job_count else 0.0

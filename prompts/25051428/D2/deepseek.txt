@@ -1,0 +1,33 @@
+﻿# D2 提示词记录
+
+## 来源会话
+
+- 会话平台：DeepSeek
+- 导出时间：2026-09-05
+- 时间范围：2026-09-05 全天
+- 消息条数：包含全部用户消息，去除重复
+- 去重规则：连续重复消息只保留第一条
+
+## 会话摘要
+
+本次会话为 D2 开发，主要围绕前端模块的后续优化和验证：
+
+1. 同步最新 main 到个人分支（快进合并，无冲突）
+2. 确认 PR #29 合并后的代码状态，验证 analysis_service 调用和推荐空结果清理逻辑保留
+3. 更新 todos.md 王宇杰任务卡，补充任务明细和勾选 R6
+4. 修复 7 处 use_container_width 弃用警告，替换为 width='stretch'
+5. 运行 tests/verify_app_integration.py 集中联调验证，五个模块全部通过
+6. 创建 D2 日报
+
+## 关键决策
+
+- use_container_width 弃用：统一替换为 width='stretch'，消除 Streamlit 2025-12-31 后的兼容性风险
+- todos.md 更新：使用 Python pathlib 替代 PowerShell 完成文本替换
+- 联调验证：依赖 tests/verify_app_integration.py 自动测试五个模块，不依赖手动截图
+
+## 验证记录
+
+- tests/verify_app_integration.py 执行结果：五个模块渲染及交互全部通过
+- 市场概览、岗位检索、分析洞察、个性化推荐、采集管理均无异常
+- use_container_width 替换后无残留
+- git 状态干净，所有改动已提交并推送

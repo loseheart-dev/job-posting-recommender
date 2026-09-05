@@ -133,6 +133,20 @@ class RecommenderBaselineTest(unittest.TestCase):
 class RecommenderMultifactorTest(unittest.TestCase):
     """多因素推荐 recommend_jobs_multifactor。"""
 
+    def test_role_name_excludes_domain_only_skill_matches(self) -> None:
+        jobs = pd.concat([sample_jobs(), sample_jobs()], ignore_index=True)
+        for index in range(5):
+            jobs.loc[index, ["title", "skills"]] = [f"财务岗位{index}", "财务;会计"]
+        jobs.loc[5, ["title", "skills"]] = ["react前端开发", "React;财务"]
+
+        result = recommend_jobs_multifactor(
+            {"target_role": "财务", "skills": "财务"}, jobs, top_k=5
+        )
+
+        self.assertEqual(len(result), 5)
+        self.assertTrue(result["title"].str.contains("财务", regex=False).all())
+        self.assertTrue((result["matched_skills"] == "财务").all())
+
     def test_weights_sum_to_one(self) -> None:
         # 权重约定锁定：组合分权重之和必须为 1（与模块文档一致）
         assert abs(sum(WEIGHTS.values()) - 1.0) < 1e-9

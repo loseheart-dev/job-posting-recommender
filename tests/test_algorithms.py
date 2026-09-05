@@ -198,6 +198,8 @@ def test_skill_noise_filter() -> None:
     finance_graph = build_skill_graph(categorized_jobs, category="财务")
     finance_frequency = dict(finance_graph["skill_frequency"])
     check("图谱支持按岗位类别筛选", finance_frequency == {"财务": 6, "应收应付": 6}, str(finance_frequency))
+    balanced_graph = build_skill_graph(categorized_jobs, balanced=True)
+    check("图谱支持类别等权排名", all(0 < score <= 1 for _, score in balanced_graph["skill_frequency"]))
 def test_algorithm_fallbacks() -> None:
     print("[8/8] 算法层兜底功能案例")
     from src.algorithms._common import flag_abnormal_salary, split_skills

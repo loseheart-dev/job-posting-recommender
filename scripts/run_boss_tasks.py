@@ -27,7 +27,9 @@ def collect_task(task: CrawlTask, args: argparse.Namespace) -> VisitResult:
     if not upstream_script.is_file():
         raise FileNotFoundError(f"上游脚本不存在: {upstream_script}")
 
-    output_dir = args.output_dir
+    # The subprocess runs in the upstream repository; resolve first so output
+    # is still written to this project when callers pass a relative directory.
+    output_dir = args.output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / f"jobs_{task.task_id}.json"
     detail_path = output_dir / f"details_{task.task_id}.json"
@@ -82,6 +84,7 @@ def main() -> None:
     if args.max_details < 1 and not args.no_detail:
         raise SystemExit("--max-details 必须大于 0")
     tasks = build_search_tasks(args.keywords, args.cities, args.pages)
+    args.traversal_log = args.traversal_log.resolve()
     records = traverse_tasks(
         tasks,
         args.strategy,

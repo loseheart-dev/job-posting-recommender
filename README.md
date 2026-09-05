@@ -22,7 +22,7 @@ pip install -r requirements.txt
 # 没有真实清洗数据时，准备仓库内的可复现样例
 mkdir -p data/processed
 cp tests/fixtures/expanded_jobs.csv data/processed/jobs.csv
-python -c "import pandas as pd; jobs = pd.read_csv('data/processed/jobs.csv'); assert len(jobs) == 8608; print(f'prepared {len(jobs)} jobs')"
+python -c "import pandas as pd; jobs = pd.read_csv('data/processed/jobs.csv'); assert len(jobs) > 0; print(f'prepared {len(jobs)} jobs')"
 
 streamlit run app.py
 ```

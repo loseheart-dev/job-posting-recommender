@@ -582,7 +582,7 @@ def _render_analysis(jobs: pd.DataFrame) -> None:
                 _, summaries = analysis_service.job_cluster(jobs)
                 for cluster_id, info in list(summaries.items())[:4]:
                     st.markdown(f"""<div class="profile-summary"><strong>群组 {html.escape(str(cluster_id))}</strong><div class="meta-grid">
-                    <div>岗位数量<br><strong>{_safe(info.get('count'))}</strong></div><div>平均薪资<br><strong class="salary">{_safe(info.get('salary_avg'))}</strong></div>
+                    <div>岗位数量<br><strong>{_safe(info.get('count'))}</strong></div><div>岗位类别<br><strong>{_safe(info.get('dominant_category'))}</strong></div><div>平均薪资<br><strong class="salary">{_safe(info.get('salary_avg'))}</strong></div>
                     <div>代表城市<br><strong>{_safe(info.get('dominant_city'))}</strong></div><div>高频技能<br><strong>{_safe('、'.join(info.get('top_skills', [])))}</strong></div></div></div>""", unsafe_allow_html=True)
             except Exception as exc: st.warning(f"岗位聚类不可用：{exc}")
 

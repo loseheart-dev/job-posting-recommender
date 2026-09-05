@@ -10,7 +10,6 @@
 - `expanded_jobs.csv`：2026-09-03 扩大关键词和地域范围后固定的 8608 条清洗结果，覆盖 61 个岗位关键词和 32 个城市；上海、杭州原有数据完整保留，其他城市通过新增采集数据扩充，其他城市单城 235–299 条；
 - `expanded_jobs_metadata.json`：对应的采集范围、时间、任务统计和清洗规则记录；
 - `expanded_jobs_stats.json`：由 `scripts/fixture_stats.py` 根据 CSV 和元数据重新计算的行数、城市分布、关键词数、去重数和沪杭占比；
-- `market_sampling_record.json`：由 `scripts/stratify_jobs.py` 根据岗位标题/行业分类后的分层抽样统计；当前数据中财务、销售、行政样本不足，报告保留短缺信息，不用重复数据填充；
 - `real_data_salary_verification.json`：基于 8608 条重洗数据复算的薪资分布、合法高薪保留断言和随机森林 MAE/R²；脚本为 `tests/verify_salary_real_data.py`；
 - 原始完整采集结果仍保存在本机专用目录，不提交到仓库。
 

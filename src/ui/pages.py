@@ -52,7 +52,7 @@ def _apply_style() -> None:
             font-family:Inter,-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
         }}
         [data-testid="stHeader"] {{ background:transparent; }}
-        [data-testid="stToolbar"], #MainMenu, footer {{ display:none!important; }}
+        #MainMenu, footer {{ display:none!important; }}
         .block-container {{ max-width:1540px; padding:1.4rem 1.8rem 3rem; }}
         section[data-testid="stSidebar"] {{
             width:14rem!important; min-width:14rem!important; background:var(--surface);
@@ -113,6 +113,9 @@ def _apply_style() -> None:
         .page-heading {{ display:flex; align-items:baseline; gap:1.2rem; min-width:0; }}
         .page-title {{ font-size:1.45rem; font-weight:760; color:var(--text); white-space:nowrap; }}
         .page-meta {{ color:var(--muted); font-size:.83rem; }}
+        .page-actions {{ display:flex; align-items:center; gap:.7rem; flex-shrink:0; }}
+        .about-link {{ color:var(--primary); font-size:.82rem; font-weight:650; text-decoration:none; white-space:nowrap; }}
+        .about-link:hover {{ text-decoration:underline; }}
         .data-badge {{ border:1px solid #B9D3FA; border-radius:6px; padding:.42rem .68rem; color:var(--primary); background:#F6FAFF; font-size:.78rem; white-space:nowrap; }}
         .kpi-card {{ min-height:8rem; padding:1rem 1.12rem; border:1px solid var(--border); border-radius:8px; background:var(--surface); box-shadow:0 5px 18px rgba(16,43,99,.035); }}
         .kpi-label {{ color:var(--muted); font-size:.82rem; font-weight:600; }}
@@ -289,7 +292,8 @@ def _page_header(title: str, jobs: pd.DataFrame, subtitle: str = "") -> None:
     meta = subtitle or f"基于 BOSS直聘 岗位数据　数据更新时间：{_data_updated()}"
     st.markdown(
         f"""<div class="page-header"><div class="page-heading"><div class="page-title">{html.escape(title)}</div>
-        <div class="page-meta">{html.escape(meta)}</div></div><div class="data-badge">数据范围：已清洗岗位数据 · {len(jobs):,} 条</div></div>""",
+        <div class="page-meta">{html.escape(meta)}</div></div><div class="page-actions"><a class="about-link" href="{ABOUT_URL}" target="_self">项目介绍</a>
+        <div class="data-badge">数据范围：已清洗岗位数据 · {len(jobs):,} 条</div></div></div>""",
         unsafe_allow_html=True,
     )
 

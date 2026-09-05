@@ -182,7 +182,7 @@ def _render_search(jobs: pd.DataFrame) -> None:
         "title", "company", "city", "work_type", "experience",
         "education", "salary_text", "skills", "source",
     ]
-    st.dataframe(result[display_columns], use_container_width=True)
+    st.dataframe(result[display_columns], width='stretch')
 
     st.markdown("### 岗位详情")
     selected_index = st.selectbox(
@@ -233,7 +233,7 @@ def _render_analysis(jobs: pd.DataFrame) -> None:
                     title="薪资分布",
                 )
                 fig.update_layout(xaxis_tickangle=-45)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
             else:
                 st.info("暂无有效薪资数据，无法绘制薪资分布。")
         except ValueError as exc:
@@ -246,7 +246,7 @@ def _render_analysis(jobs: pd.DataFrame) -> None:
             if freq:
                 freq_df = pd.DataFrame(freq, columns=["技能", "出现次数"])
                 fig = px.bar(freq_df, x="技能", y="出现次数", title="高频技能 Top 15")
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
             else:
                 st.info("暂无技能数据")
         except Exception as exc:
@@ -256,7 +256,7 @@ def _render_analysis(jobs: pd.DataFrame) -> None:
         st.markdown("### 薪资影响因素")
         try:
             salary_factors = analysis_service.salary_factor_analysis(jobs)
-            st.dataframe(salary_factors, use_container_width=True)
+            st.dataframe(salary_factors, width='stretch')
         except Exception as exc:
             st.warning(f"薪资因素分析不可用：{exc}")
 
@@ -264,7 +264,7 @@ def _render_analysis(jobs: pd.DataFrame) -> None:
         try:
             clustered, summaries = analysis_service.job_cluster(jobs)
             cluster_df = clustered[["title", "company", "city", "salary_avg", "cluster_id"]].head(10)
-            st.dataframe(cluster_df, use_container_width=True)
+            st.dataframe(cluster_df, width='stretch')
             for cluster_id, info in summaries.items():
                 with st.container(border=True):
                     st.markdown(f"**群组 {cluster_id}**")
@@ -279,7 +279,7 @@ def _render_analysis(jobs: pd.DataFrame) -> None:
         st.markdown("### 招聘企业画像")
         try:
             profiles = analysis_service.company_profile(jobs)
-            st.dataframe(profiles.head(15), use_container_width=True)
+            st.dataframe(profiles.head(15), width='stretch')
         except Exception as exc:
             st.warning(f"企业画像不可用：{exc}")
 
@@ -510,11 +510,4 @@ def _render_collection(jobs: pd.DataFrame) -> None:
     else:
         rows = [task.to_dict() for task in tasks]
         task_df = pd.DataFrame(rows)
-        st.dataframe(task_df, use_container_width=True)
-
-
-
-
-
-
-
+        st.dataframe(task_df, width='stretch')

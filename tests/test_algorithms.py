@@ -201,6 +201,8 @@ def test_algorithm_fallbacks() -> None:
     flags2 = flag_abnormal_salary(jobs)
     check("高薪不因金额阈值被标记", not flags2.iloc[2])
     check("高薪不影响正常行", not flags2.drop(0).any())
+    high_salary = pd.DataFrame({"salary_avg": [100000.0, 255000.0]})
+    check("10万及以上合法月薪不被标记", not flag_abnormal_salary(high_salary).any())
     from src.data.boss_adapter import parse_salary
     check(
         "明确高月薪解析为月薪",

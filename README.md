@@ -29,5 +29,6 @@ streamlit run app.py
 
 - 启动前请准备 `data/processed/jobs.csv`；暂缺真实数据时执行上面的复制命令，将 `tests/fixtures/expanded_jobs.csv` 放到应用默认读取路径。该运行数据路径被 `.gitignore` 忽略，不会提交大体积数据。
 - 服务自检：`python -m tests.smoke`、`python -m tests.verify_real_data`；页面调用服务方式见 [docs/25051430/服务层调用说明.md](docs/25051430/服务层调用说明.md)。
+- 薪资口径复算：`python -m tests.verify_salary_real_data`；结果见 `tests/fixtures/real_data_salary_verification.json`。
 
 立项、调研和项目材料见 [`docs/25051408/`](docs/25051408/)，团队分工见 [`docs/团队/`](docs/团队/)，前端设计见 [`docs/团队/前端设计说明.md`](docs/团队/前端设计说明.md)，成员报告见 [`docs/成员报告/`](docs/成员报告/)，接口与采集说明见 [`docs/接口约定.md`](docs/接口约定.md)。

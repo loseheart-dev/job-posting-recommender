@@ -1,0 +1,349 @@
+{
+  "verification": "passed",
+  "input": "data/processed/jobs.csv",
+  "rows": 8608,
+  "columns": 21,
+  "salary_count": 7834,
+  "missing_salary_count": 774,
+  "low_salary_flagged_count": 0,
+  "high_salary_retained_count": 19,
+  "salary_summary": {
+    "min": 750.0,
+    "max": 255000.0,
+    "mean": 12337.92
+  },
+  "salary_distribution": [
+    {
+      "range": "0-5000",
+      "min": 0,
+      "max": 5000,
+      "count": 519
+    },
+    {
+      "range": "5000-10000",
+      "min": 5000,
+      "max": 10000,
+      "count": 3232
+    },
+    {
+      "range": "10000-15000",
+      "min": 10000,
+      "max": 15000,
+      "count": 2398
+    },
+    {
+      "range": "15000-20000",
+      "min": 15000,
+      "max": 20000,
+      "count": 669
+    },
+    {
+      "range": "20000-25000",
+      "min": 20000,
+      "max": 25000,
+      "count": 500
+    },
+    {
+      "range": "25000-30000",
+      "min": 25000,
+      "max": 30000,
+      "count": 150
+    },
+    {
+      "range": "30000-35000",
+      "min": 30000,
+      "max": 35000,
+      "count": 157
+    },
+    {
+      "range": "35000-40000",
+      "min": 35000,
+      "max": 40000,
+      "count": 47
+    },
+    {
+      "range": "40000-45000",
+      "min": 40000,
+      "max": 45000,
+      "count": 30
+    },
+    {
+      "range": "45000-50000",
+      "min": 45000,
+      "max": 50000,
+      "count": 28
+    },
+    {
+      "range": "50000-55000",
+      "min": 50000,
+      "max": 55000,
+      "count": 17
+    },
+    {
+      "range": "55000-60000",
+      "min": 55000,
+      "max": 60000,
+      "count": 29
+    },
+    {
+      "range": "60000-65000",
+      "min": 60000,
+      "max": 65000,
+      "count": 7
+    },
+    {
+      "range": "65000-70000",
+      "min": 65000,
+      "max": 70000,
+      "count": 13
+    },
+    {
+      "range": "70000-75000",
+      "min": 70000,
+      "max": 75000,
+      "count": 3
+    },
+    {
+      "range": "75000-80000",
+      "min": 75000,
+      "max": 80000,
+      "count": 4
+    },
+    {
+      "range": "80000-85000",
+      "min": 80000,
+      "max": 85000,
+      "count": 1
+    },
+    {
+      "range": "85000-90000",
+      "min": 85000,
+      "max": 90000,
+      "count": 7
+    },
+    {
+      "range": "90000-95000",
+      "min": 90000,
+      "max": 95000,
+      "count": 1
+    },
+    {
+      "range": "95000-100000",
+      "min": 95000,
+      "max": 100000,
+      "count": 3
+    },
+    {
+      "range": "100000-105000",
+      "min": 100000,
+      "max": 105000,
+      "count": 3
+    },
+    {
+      "range": "105000-110000",
+      "min": 105000,
+      "max": 110000,
+      "count": 4
+    },
+    {
+      "range": "110000-115000",
+      "min": 110000,
+      "max": 115000,
+      "count": 0
+    },
+    {
+      "range": "115000-120000",
+      "min": 115000,
+      "max": 120000,
+      "count": 0
+    },
+    {
+      "range": "120000-125000",
+      "min": 120000,
+      "max": 125000,
+      "count": 0
+    },
+    {
+      "range": "125000-130000",
+      "min": 125000,
+      "max": 130000,
+      "count": 2
+    },
+    {
+      "range": "130000-135000",
+      "min": 130000,
+      "max": 135000,
+      "count": 1
+    },
+    {
+      "range": "135000-140000",
+      "min": 135000,
+      "max": 140000,
+      "count": 0
+    },
+    {
+      "range": "140000-145000",
+      "min": 140000,
+      "max": 145000,
+      "count": 0
+    },
+    {
+      "range": "145000-150000",
+      "min": 145000,
+      "max": 150000,
+      "count": 0
+    },
+    {
+      "range": "150000-155000",
+      "min": 150000,
+      "max": 155000,
+      "count": 2
+    },
+    {
+      "range": "155000-160000",
+      "min": 155000,
+      "max": 160000,
+      "count": 0
+    },
+    {
+      "range": "160000-165000",
+      "min": 160000,
+      "max": 165000,
+      "count": 2
+    },
+    {
+      "range": "165000-170000",
+      "min": 165000,
+      "max": 170000,
+      "count": 0
+    },
+    {
+      "range": "170000-175000",
+      "min": 170000,
+      "max": 175000,
+      "count": 0
+    },
+    {
+      "range": "175000-180000",
+      "min": 175000,
+      "max": 180000,
+      "count": 1
+    },
+    {
+      "range": "180000-185000",
+      "min": 180000,
+      "max": 185000,
+      "count": 1
+    },
+    {
+      "range": "185000-190000",
+      "min": 185000,
+      "max": 190000,
+      "count": 0
+    },
+    {
+      "range": "190000-195000",
+      "min": 190000,
+      "max": 195000,
+      "count": 0
+    },
+    {
+      "range": "195000-200000",
+      "min": 195000,
+      "max": 200000,
+      "count": 1
+    },
+    {
+      "range": "200000-205000",
+      "min": 200000,
+      "max": 205000,
+      "count": 1
+    },
+    {
+      "range": "205000-210000",
+      "min": 205000,
+      "max": 210000,
+      "count": 0
+    },
+    {
+      "range": "210000-215000",
+      "min": 210000,
+      "max": 215000,
+      "count": 0
+    },
+    {
+      "range": "215000-220000",
+      "min": 215000,
+      "max": 220000,
+      "count": 0
+    },
+    {
+      "range": "220000-225000",
+      "min": 220000,
+      "max": 225000,
+      "count": 0
+    },
+    {
+      "range": "225000-230000",
+      "min": 225000,
+      "max": 230000,
+      "count": 0
+    },
+    {
+      "range": "230000-235000",
+      "min": 230000,
+      "max": 235000,
+      "count": 0
+    },
+    {
+      "range": "235000-240000",
+      "min": 235000,
+      "max": 240000,
+      "count": 0
+    },
+    {
+      "range": "240000-245000",
+      "min": 240000,
+      "max": 245000,
+      "count": 0
+    },
+    {
+      "range": "245000-250000",
+      "min": 245000,
+      "max": 250000,
+      "count": 0
+    },
+    {
+      "range": "250000-255000",
+      "min": 250000,
+      "max": 255000,
+      "count": 0
+    },
+    {
+      "range": "255000-260000",
+      "min": 255000,
+      "max": 260000,
+      "count": 1
+    }
+  ],
+  "random_forest": {
+    "mae": 4970.88,
+    "r2": 0.1937,
+    "test_size": 0.3,
+    "random_state": 42
+  },
+  "historical_comparison": {
+    "reported_r2": 0.234,
+    "current_r2_minus_reported": -0.0403,
+    "source": "daily/25051408/D4.md",
+    "status": "historical intermediate result, not a current algorithm threshold"
+  },
+  "salary_policy": {
+    "monthly_unit": "RMB/month",
+    "non_monthly_values": "cleaning side sets numeric salary columns to null",
+    "algorithm_high_salary_threshold": null,
+    "algorithm_low_salary_threshold": 500
+  },
+  "note": "D4 中的 0.234 属于旧的高值阈值中间方案；本结果按当前终态复算，不恢复 10 万元硬阈值。",
+  "generated_at": "2026-09-05T00:47:25.986088+00:00"
+}

@@ -3,7 +3,8 @@ import math
 import numpy as np
 import pandas as pd
 
-from src.algorithms._common import split_skills
+from src.algorithms._common import balanced_top_skills, split_skills
+from src.data.market import JOB_CATEGORIES, add_job_category
 from src.data.schema import FILTER_KEYS, JOB_COLUMNS
 
 
@@ -51,7 +52,29 @@ def summarize_jobs(jobs: pd.DataFrame) -> dict[str, object]:
         "salary_max": float(salaries.max()) if not salaries.empty else None,
         "salary_avg": float(salaries.mean()) if not salaries.empty else None,
         "top_skills": sorted(skill_counts.items(), key=lambda item: (-item[1], item[0]))[:10],
+        "balanced_top_skills": balanced_top_skills(result, 10) if not result.empty else [],
+        "category_metrics": category_metrics(result),
     }
+
+
+def category_metrics(jobs: pd.DataFrame) -> list[dict[str, object]]:
+    """返回各岗位类别的数量占比和有效技能覆盖率。"""
+    result = add_job_category(_canonical_jobs(jobs))
+    total = len(result)
+    metrics: list[dict[str, object]] = []
+    for category in JOB_CATEGORIES:
+        group = result[result["job_category"] == category]
+        covered = sum(bool(split_skills(value)) for value in group["skills"].fillna(""))
+        count = len(group)
+        metrics.append(
+            {
+                "category": category,
+                "job_count": count,
+                "job_share": count / total if total else 0.0,
+                "skill_coverage": covered / count if count else 0.0,
+            }
+        )
+    return metrics
 
 
 def education_distribution(jobs: pd.DataFrame, top_k: int = 6) -> list[dict[str, object]]:

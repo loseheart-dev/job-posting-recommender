@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+import json
 import re
 from datetime import datetime
 from pathlib import Path
@@ -9,6 +10,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from src.data.market import JOB_CATEGORIES, add_job_category
 from src.data.schema import StudentProfile
 from src.services import analysis_service, site_service, task_service
 from src.services.job_service import (
@@ -27,6 +29,26 @@ COLORS = {
 }
 PAGES = ("市场概览", "岗位检索", "分析洞察", "个性化推荐", "采集管理")
 DATA_PATH = Path("data/processed/jobs.csv")
+ABOUT_PAGE_PATH = Path(__file__).resolve().parents[2] / "about.html"
+ABOUT_URL = "/about.html"
+INTERPRETATION_URL = "/interpretation.html"
+FACTOR_DISPLAY_NAMES = {
+    "education": "学历",
+    "experience": "工作经验",
+    "city": "城市",
+    "work_type": "工作方式",
+    "company_nature": "企业性质",
+    "company_size": "企业规模",
+    "industry": "所属行业",
+}
+
+
+def _is_about_page_url(url: object) -> bool:
+    return str(url or "").rstrip("/").endswith("/about.html")
+
+
+def _is_interpretation_page_url(url: object) -> bool:
+    return str(url or "").rstrip("/").endswith(INTERPRETATION_URL)
 
 
 def _apply_style() -> None:
@@ -45,7 +67,7 @@ def _apply_style() -> None:
             font-family:Inter,-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
         }}
         [data-testid="stHeader"] {{ background:transparent; }}
-        [data-testid="stToolbar"], #MainMenu, footer {{ display:none!important; }}
+        #MainMenu, footer {{ display:none!important; }}
         .block-container {{ max-width:1540px; padding:1.4rem 1.8rem 3rem; }}
         section[data-testid="stSidebar"] {{
             width:14rem!important; min-width:14rem!important; background:var(--surface);
@@ -63,6 +85,11 @@ def _apply_style() -> None:
             box-shadow:inset 3px 0 0 var(--primary);
         }}
         [data-testid="stSidebar"] [role="radiogroup"] label > div:first-child {{ display:none; }}
+        .sidebar-about-link {{
+            display:block; min-height:2.9rem; padding:.7rem .9rem; margin-top:.35rem;
+            border-radius:8px; color:var(--text); text-decoration:none;
+        }}
+        .sidebar-about-link:hover {{ background:#EDF4FF; color:var(--primary); }}
         h1,h2,h3,h4,p {{ color:var(--text); }}
         h2 {{ font-size:1.28rem!important; }} h3 {{ font-size:1.02rem!important; }}
         [data-testid="stCaptionContainer"] {{ color:var(--muted); }}
@@ -101,6 +128,9 @@ def _apply_style() -> None:
         .page-heading {{ display:flex; align-items:baseline; gap:1.2rem; min-width:0; }}
         .page-title {{ font-size:1.45rem; font-weight:760; color:var(--text); white-space:nowrap; }}
         .page-meta {{ color:var(--muted); font-size:.83rem; }}
+        .page-actions {{ display:flex; align-items:center; gap:.7rem; flex-shrink:0; }}
+        .about-link {{ color:var(--primary); font-size:.82rem; font-weight:650; text-decoration:none; white-space:nowrap; }}
+        .about-link:hover {{ text-decoration:underline; }}
         .data-badge {{ border:1px solid #B9D3FA; border-radius:6px; padding:.42rem .68rem; color:var(--primary); background:#F6FAFF; font-size:.78rem; white-space:nowrap; }}
         .kpi-card {{ min-height:8rem; padding:1rem 1.12rem; border:1px solid var(--border); border-radius:8px; background:var(--surface); box-shadow:0 5px 18px rgba(16,43,99,.035); }}
         .kpi-label {{ color:var(--muted); font-size:.82rem; font-weight:600; }}
@@ -123,8 +153,8 @@ def _apply_style() -> None:
         .profile-summary {{ border:1px solid var(--border); border-radius:8px; padding:.85rem 1rem; background:#FBFDFF; margin-bottom:.8rem; }}
         .site-grid {{ display:grid; grid-template-columns:1.3fr 1fr 1fr .7fr .6fr .8fr; gap:1rem; margin-top:.75rem; color:var(--muted); font-size:.78rem; }}
         .site-grid strong {{ display:block; color:var(--text); margin-top:.2rem; font-weight:550; }}
-        .status-pill {{ display:inline-block; margin-left:.5rem; padding:.18rem .45rem; border-radius:5px; background:#EAF8F1; color:#17845A; font-size:.72rem; font-weight:700; }}
-        @media (max-width:900px) {{
+.status-pill {{ display:inline-block; margin-left:.5rem; padding:.18rem .45rem; border-radius:5px; background:#EAF8F1; color:#17845A; font-size:.72rem; font-weight:700; }}
+@media (max-width:900px) {{
             section[data-testid="stSidebar"] {{ width:12rem!important; min-width:12rem!important; }}
             .page-header,.page-heading {{ align-items:flex-start; flex-direction:column; gap:.3rem; }}
             .recommend-grid,.site-grid {{ grid-template-columns:1fr; }}
@@ -135,6 +165,13 @@ def _apply_style() -> None:
         """,
         unsafe_allow_html=True,
     )
+
+
+def _render_about_page() -> None:
+    if ABOUT_PAGE_PATH.exists():
+        st.html(ABOUT_PAGE_PATH.read_text(encoding="utf-8"))
+    else:
+        st.error("项目介绍页面暂不可用。")
 
 
 def _safe(value: object, fallback: str = "未知") -> str:
@@ -161,6 +198,179 @@ def _tokens(value: object, limit: int = 6) -> list[str]:
     return [item for item in values if item and item.lower() not in {"nan", "none"}][:limit]
 
 
+def _summary_mapping(value: object) -> dict[str, object]:
+    if isinstance(value, dict):
+        return value
+    if value is None:
+        return {}
+    try:
+        parsed = json.loads(str(value))
+    except (TypeError, ValueError):
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _summary_number(summary: dict[str, object], key: str) -> float | None:
+    value = summary.get(key)
+    try:
+        number = float(value) if value not in (None, "") else None
+    except (TypeError, ValueError):
+        return None
+    return number if number is not None and pd.notna(number) else None
+
+
+def _display_text(value: object, fallback: str = "未提供") -> str:
+    if value is None:
+        return fallback
+    text = str(value).strip()
+    if not text or text.lower() in {"nan", "none"}:
+        return fallback
+    return text
+
+
+def _format_salary_summary(value: object) -> str:
+    summary = _summary_mapping(value)
+    count = _summary_number(summary, "count")
+    if not count:
+        return "暂无有效薪资"
+    parts = [f"{int(count)} 个岗位"]
+    mean = _summary_number(summary, "mean")
+    low = _summary_number(summary, "min")
+    high = _summary_number(summary, "max")
+    if mean is not None:
+        parts.append(f"平均 {mean:,.0f} 元/月")
+    if low is not None and high is not None:
+        parts.append(f"区间 {low:,.0f}–{high:,.0f} 元/月")
+    return " · ".join(parts)
+
+
+def _format_skill_summary(value: object) -> str:
+    summary = _summary_mapping(value)
+    if not summary:
+        return "暂无技能记录"
+    items = []
+    for skill, count in summary.items():
+        items.append(f"{skill}（{_display_text(count, '0')}）")
+    return " · ".join(items)
+
+
+def _readable_factor(value: object) -> str:
+    text = _display_text(value)
+    factor, separator, level = text.partition("-")
+    name = FACTOR_DISPLAY_NAMES.get(factor, factor)
+    return f"{name}：{level}" if separator and level else name
+
+
+def _render_human_interpretation(jobs: pd.DataFrame) -> None:
+    _page_header("求职解读", jobs, "把统计结果翻译成求职者能用的判断")
+    if jobs.empty:
+        st.info("当前没有可解读的岗位数据，请先准备清洗后的 jobs.csv。")
+        return
+
+    summary = summarize_jobs(jobs)
+    job_count = int(summary.get("job_count", len(jobs)))
+    salary_count = int(summary.get("salary_count", 0))
+    salary_avg = summary.get("salary_avg")
+    salary_coverage = salary_count / job_count * 100 if job_count else 0.0
+    company_series = jobs.get("company", pd.Series(index=jobs.index, dtype="object"))
+    city_series = jobs.get("city", pd.Series(index=jobs.index, dtype="object"))
+    company_count = int(company_series.fillna("").astype(str).str.strip().replace("", pd.NA).dropna().nunique())
+    city_count = int(city_series.fillna("").astype(str).str.strip().replace("", pd.NA).dropna().nunique())
+
+    metric_cols = st.columns(3, gap="small")
+    with metric_cols[0]:
+        _kpi("样本规模", f"{job_count:,} 条", "当前参与解读的岗位")
+    with metric_cols[1]:
+        _kpi("有效月薪覆盖", f"{salary_coverage:.1f}%", f"可比较薪资 {salary_count:,} 条", "success")
+    with metric_cols[2]:
+        _kpi("企业与城市", f"{company_count:,} / {city_count:,}", "企业数 / 城市数")
+
+    with st.container(border=True):
+        st.markdown('<div class="section-label">先看结论</div>', unsafe_allow_html=True)
+        if salary_count == 0:
+            st.write("当前样本没有可比较的月薪，暂时不能用这批数据判断待遇水平。")
+        elif salary_coverage >= 80:
+            st.write(
+                f"这批数据中约 {salary_coverage:.1f}% 的岗位给出了可比较的月薪，"
+                f"整体平均约为 {float(salary_avg):,.0f} 元/月。它适合帮助你建立市场参照，"
+                "但不代表任何个人一定能拿到这个数。"
+            )
+        else:
+            st.write(
+                f"当前只有 {salary_coverage:.1f}% 的岗位有可比较月薪，平均值只能作为粗略参照。"
+                "做选择时应优先查看具体岗位的薪资区间，并留意缺失信息。"
+            )
+
+    salary_col, factor_col = st.columns([0.9, 1.1], gap="medium")
+    with salary_col:
+        with st.container(border=True):
+            st.markdown('<div class="section-label">薪资结果对求职者意味着什么</div>', unsafe_allow_html=True)
+            st.write("平均月薪回答的是‘市场大致在哪’，薪资区间回答的是‘机会分布有多宽’。")
+            st.write("如果你的目标岗位落在区间上沿，通常需要用学历、经验、技能或项目经历证明自己的匹配度；如果落在下沿，应进一步比较工作内容、城市和福利，而不是只看数字。")
+    with factor_col:
+        with st.container(border=True):
+            st.markdown('<div class="section-label">薪资影响因素如何解读</div>', unsafe_allow_html=True)
+            try:
+                factors = analysis_service.salary_factor_analysis(jobs).head(5)
+                direction_text = {"higher": "与较高薪资相关", "lower": "与较低薪资相关", "neutral": "与整体水平接近"}
+                for _, row in factors.iterrows():
+                    try:
+                        importance = float(row.get("importance", 0))
+                    except (TypeError, ValueError):
+                        importance = 0.0
+                    direction = direction_text.get(str(row.get("impact_direction")), "需要结合样本判断")
+                    st.markdown(
+                        f"- **{_safe(_readable_factor(row.get('factor')))}** —— {direction}，"
+                        f"重要性参考值 {importance:.2f}。"
+                    )
+                st.caption("这里反映的是样本中的统计关联，不是对个人薪资的因果保证。")
+            except Exception as exc:
+                st.warning(f"薪资因素暂时无法解读：{exc}")
+
+    skill_col, company_col = st.columns([1.05, 0.95], gap="medium")
+    with skill_col:
+        with st.container(border=True):
+            st.markdown('<div class="section-label">技能结果如何转化为行动</div>', unsafe_allow_html=True)
+            try:
+                skill_frequency = analysis_service.skill_graph(jobs, balanced=True).get("skill_frequency", [])[:6]
+                skills = [str(item[0]) for item in skill_frequency if isinstance(item, (list, tuple)) and item]
+                if skills:
+                    st.write(f"跨岗位类别覆盖较广的技能包括：{'、'.join(skills)}。")
+                    st.write("这不表示必须全部掌握，而是可以用来安排学习优先级：先补齐目标岗位反复出现的技能，再用项目经历证明实际使用过。")
+                else:
+                    st.write("当前样本没有足够的技能记录，不能据此安排学习优先级。")
+            except Exception as exc:
+                st.warning(f"技能结果暂时无法解读：{exc}")
+    with company_col:
+        with st.container(border=True):
+            st.markdown('<div class="section-label">企业画像对选择公司的意义</div>', unsafe_allow_html=True)
+            st.write(f"当前样本覆盖约 {company_count:,} 家企业、{city_count:,} 个城市。")
+            st.write("企业规模、性质和所属行业可以帮助你区分工作环境、业务稳定性和成长路径。建议把它们与岗位职责、薪资区间和城市生活成本一起比较，不要仅凭公司名称做判断。")
+
+    with st.container(border=True):
+        st.markdown('<div class="section-label">薪资预测应该怎样使用</div>', unsafe_allow_html=True)
+        try:
+            _, metrics = analysis_service.salary_prediction(jobs)
+            mae = float(metrics.get("mae", 0))
+            r2 = float(metrics.get("r2", 0))
+            if r2 >= 0:
+                st.write(f"模型在独立测试集上的平均误差约为 {mae:,.0f} 元/月，R² 为 {r2:.3f}。这说明模型可以从岗位特征中提取一部分薪资差异，但不能替代真实面试、谈薪和个人判断。")
+            else:
+                st.write(f"模型在独立测试集上的平均误差约为 {mae:,.0f} 元/月，R² 为 {r2:.3f}。当前特征对薪资差异的解释力有限，预测结果只能作为非常粗略的参考。")
+            st.caption("预测使用技能、学历、经验、城市、工作方式和企业信息等岗位特征，不把薪资本身作为输入。")
+        except Exception as exc:
+            st.warning(f"薪资预测暂时无法解读：{exc}")
+
+    with st.container(border=True):
+        st.markdown('<div class="section-label">建议的使用顺序</div>', unsafe_allow_html=True)
+        st.markdown(
+            "1. 先按目标岗位和城市筛选，确认自己比较的是同一类机会。\n"
+            "2. 再看薪资区间和薪资覆盖率，避免用少量样本代表整个市场。\n"
+            "3. 对照技能需求，选择最常出现且与目标岗位相关的技能补强。\n"
+            "4. 最后结合个人学历、经历和期望，使用个性化推荐比较具体岗位。"
+        )
+
+
 def _compact_salary_distribution(dist_df: pd.DataFrame, cutoff: int = 40_000) -> pd.DataFrame:
     """将极少量高薪离群区间合并，避免图表被拉长到无法阅读。"""
     if dist_df.empty or "min" not in dist_df or "count" not in dist_df:
@@ -184,6 +394,14 @@ def _data_updated() -> str:
 def _sidebar(job_count: int) -> str:
     st.sidebar.markdown('<div class="brand"><div class="brand-name">Career Signal</div><div class="brand-subtitle">岗位智能工作台</div></div>', unsafe_allow_html=True)
     page = st.sidebar.radio("导航", PAGES, label_visibility="collapsed")
+    st.sidebar.markdown(
+        f'<a class="sidebar-about-link" href="{ABOUT_URL}" target="_self">项目介绍</a>',
+        unsafe_allow_html=True,
+    )
+    st.sidebar.markdown(
+        f'<a class="sidebar-about-link" href="{INTERPRETATION_URL}" target="_self">求职解读</a>',
+        unsafe_allow_html=True,
+    )
     site = site_service.ensure_default_site()
     tasks = task_service.list_tasks(site.site_id)
     active_tasks = [task for task in tasks if task.status in {"pending", "running"}]
@@ -210,7 +428,8 @@ def _page_header(title: str, jobs: pd.DataFrame, subtitle: str = "") -> None:
     meta = subtitle or f"基于 BOSS直聘 岗位数据　数据更新时间：{_data_updated()}"
     st.markdown(
         f"""<div class="page-header"><div class="page-heading"><div class="page-title">{html.escape(title)}</div>
-        <div class="page-meta">{html.escape(meta)}</div></div><div class="data-badge">数据范围：已清洗岗位数据 · {len(jobs):,} 条</div></div>""",
+        <div class="page-meta">{html.escape(meta)}</div></div><div class="page-actions"><a class="about-link" href="{ABOUT_URL}" target="_self">项目介绍</a>
+        <div class="data-badge">数据范围：已清洗岗位数据 · {len(jobs):,} 条</div></div></div>""",
         unsafe_allow_html=True,
     )
 
@@ -293,10 +512,18 @@ def _render_pagination(meta: dict[str, object], key_prefix: str) -> None:
         )
 
 
-def render_home(jobs: pd.DataFrame) -> None:
+def render_home(jobs: pd.DataFrame, url: str | None = None) -> None:
     st.set_page_config(page_title="Career Signal", layout="wide", initial_sidebar_state="expanded")
     _apply_style()
+    context = getattr(st, "context", None)
+    current_url = url if url is not None else getattr(context, "url", None)
+    if _is_about_page_url(current_url):
+        _render_about_page()
+        return
     page = _sidebar(len(jobs))
+    if _is_interpretation_page_url(current_url):
+        _render_human_interpretation(jobs)
+        return
     if jobs.empty and page != "采集管理":
         _page_header(page, jobs)
         st.info("尚未找到清洗后岗位数据，请将 jobs.csv 放入 data/processed/。")
@@ -307,13 +534,14 @@ def render_home(jobs: pd.DataFrame) -> None:
 def _render_overview(jobs: pd.DataFrame) -> None:
     _page_header("面向大学生求职的岗位数据分析与个性化推荐系统", jobs)
     summary = summarize_jobs(jobs)
-    job_count, salary_avg, salary_count, top_skills = summary["job_count"], summary["salary_avg"], summary["salary_count"], summary["top_skills"]
+    job_count, salary_avg, salary_count = summary["job_count"], summary["salary_avg"], summary["salary_count"]
+    balanced_skills = summary.get("balanced_top_skills", [])
     salary_coverage = salary_count / job_count * 100 if job_count else 0.0
     cols = st.columns(4, gap="small")
     with cols[0]: _kpi("岗位总量", f"{job_count:,}", "当前清洗后的有效岗位")
     with cols[1]: _kpi("平均月薪", f"¥{salary_avg:,.0f}" if salary_avg is not None else "暂无数据", "按有效月薪样本统计", "salary")
     with cols[2]: _kpi("薪资数据覆盖率", f"{salary_coverage:.1f}%", f"有效薪资 {salary_count:,} 条", "success")
-    with cols[3]: _kpi("高频技能（Top 5）", top_skills[0][0] if top_skills else "暂无数据", "、".join(skill for skill, _ in top_skills[:5]) or "暂无数据")
+    with cols[3]: _kpi("类别均衡技能 Top 1", balanced_skills[0][0] if balanced_skills else "暂无数据", "、".join(skill for skill, _ in balanced_skills[:5]) or "暂无数据")
 
     chart_cols = st.columns(3, gap="small")
     with chart_cols[0]:
@@ -340,6 +568,41 @@ def _render_overview(jobs: pd.DataFrame) -> None:
                 st.info("暂无学历数据。")
             else:
                 fig = px.pie(edu_df, names="学历", values="岗位数量", hole=.55, color_discrete_sequence=[COLORS["primary"], "#21B9A6", "#F4B740", "#8D72E1", "#AAB5C7", "#5C9CF5"])
+                st.plotly_chart(_style_figure(fig), width='stretch', config={"displayModeBar": False})
+    category_df = pd.DataFrame(summary.get("category_metrics", []))
+    if not category_df.empty:
+        metric_cols = st.columns(2, gap="small")
+        with metric_cols[0]:
+            with st.container(border=True):
+                st.markdown('<div class="section-label">岗位类别占比</div>', unsafe_allow_html=True)
+                share_df = category_df.assign(岗位占比=lambda frame: frame["job_share"] * 100).rename(
+                    columns={"category": "岗位类别", "岗位占比": "岗位占比（%）"}
+                )
+                fig = px.bar(
+                    share_df.sort_values("岗位占比（%）"),
+                    x="岗位占比（%）",
+                    y="岗位类别",
+                    orientation="h",
+                    text="岗位占比（%）",
+                    color_discrete_sequence=[COLORS["primary"]],
+                )
+                fig.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
+                st.plotly_chart(_style_figure(fig), width='stretch', config={"displayModeBar": False})
+        with metric_cols[1]:
+            with st.container(border=True):
+                st.markdown('<div class="section-label">类别内技能覆盖率</div>', unsafe_allow_html=True)
+                coverage_df = category_df.assign(技能覆盖率=lambda frame: frame["skill_coverage"] * 100).rename(
+                    columns={"category": "岗位类别", "技能覆盖率": "技能覆盖率（%）"}
+                )
+                fig = px.bar(
+                    coverage_df.sort_values("技能覆盖率（%）"),
+                    x="技能覆盖率（%）",
+                    y="岗位类别",
+                    orientation="h",
+                    text="技能覆盖率（%）",
+                    color_discrete_sequence=[COLORS["success"]],
+                )
+                fig.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
                 st.plotly_chart(_style_figure(fig), width='stretch', config={"displayModeBar": False})
     _render_overview_workspace(jobs)
 
@@ -530,7 +793,7 @@ def _render_analysis(jobs: pd.DataFrame) -> None:
                 metric_cols = st.columns(2)
                 with metric_cols[0]: _kpi("MAE", f"{metrics['mae']:,.2f}", "元/月", "salary")
                 with metric_cols[1]: _kpi("R²", f"{metrics['r2']:.3f}", "拟合优度", "success")
-                st.caption("随机森林模型在独立测试集上的评估指标。")
+                st.caption("预测岗位平均月薪，依据技能、学历、经验、城市、工作方式、企业性质、企业规模和行业等岗位信息；模型不把薪资字段作为输入。MAE 和 R² 来自独立测试集，反映样本关联，不代表因果关系。")
             except Exception as exc: st.warning(f"薪资预测不可用：{exc}")
 
     with st.container(border=True):
@@ -566,37 +829,73 @@ def _render_analysis(jobs: pd.DataFrame) -> None:
             st.dataframe(salary_factors, width='stretch', hide_index=True, height=360)
         except Exception as exc: st.warning(f"薪资因素分析不可用：{exc}")
 
+    analysis_category = st.selectbox(
+        "分析岗位类别",
+        ["全部岗位", *JOB_CATEGORIES],
+        key="analysis_category",
+        help="按类别统计技能并聚类，避免全量频次被技术岗位标签主导。",
+    )
+    selected_category = None if analysis_category == "全部岗位" else analysis_category
+    category_jobs = jobs
+    if selected_category:
+        categorized_jobs = add_job_category(jobs)
+        category_jobs = jobs.loc[categorized_jobs["job_category"] == selected_category]
+
     skill_col, cluster_col = st.columns([1.15, 0.85], gap="medium")
     with skill_col:
         with st.container(border=True):
             st.markdown('<div class="section-label">岗位能力需求图谱</div>', unsafe_allow_html=True)
             try:
-                freq_df = pd.DataFrame(analysis_service.skill_graph(jobs)["skill_frequency"][:15], columns=["技能", "出现次数"]).sort_values("出现次数")
-                fig = px.bar(freq_df, x="出现次数", y="技能", orientation="h", color_discrete_sequence=[COLORS["primary"]])
+                balanced = selected_category is None
+                metric = "类别等权覆盖率" if balanced else "出现次数"
+                freq_df = pd.DataFrame(
+                    analysis_service.skill_graph(
+                        jobs,
+                        category=selected_category,
+                        balanced=balanced,
+                    )["skill_frequency"][:15],
+                    columns=["技能", metric],
+                ).sort_values(metric)
+                if balanced:
+                    freq_df[metric] = freq_df[metric] * 100
+                fig = px.bar(freq_df, x=metric, y="技能", orientation="h", color_discrete_sequence=[COLORS["primary"]])
                 st.plotly_chart(_style_figure(fig, 360), width='stretch', config={"displayModeBar": False})
+                st.caption("全部岗位使用类别等权技能覆盖率；选择具体类别后显示该类别的岗位出现次数。" if balanced else "当前为所选岗位类别的技能出现次数。")
             except Exception as exc: st.warning(f"能力需求图谱不可用：{exc}")
     with cluster_col:
         with st.container(border=True):
             st.markdown('<div class="section-label">岗位聚类</div>', unsafe_allow_html=True)
             try:
-                _, summaries = analysis_service.job_cluster(jobs)
+                _, summaries = analysis_service.job_cluster(category_jobs)
                 for cluster_id, info in list(summaries.items())[:4]:
+                    category_skills = info.get("top_skills_by_category", {})
+                    skill_text = "；".join(
+                        f"{category}：{'、'.join(skills)}"
+                        for category, skills in category_skills.items()
+                        if skills
+                    ) or "、".join(info.get("top_skills", []))
                     st.markdown(f"""<div class="profile-summary"><strong>群组 {html.escape(str(cluster_id))}</strong><div class="meta-grid">
                     <div>岗位数量<br><strong>{_safe(info.get('count'))}</strong></div><div>岗位类别<br><strong>{_safe(info.get('dominant_category'))}</strong></div><div>平均薪资<br><strong class="salary">{_safe(info.get('salary_avg'))}</strong></div>
-                    <div>代表城市<br><strong>{_safe(info.get('dominant_city'))}</strong></div><div>高频技能<br><strong>{_safe('、'.join(info.get('top_skills', [])))}</strong></div></div></div>""", unsafe_allow_html=True)
+                    <div>代表城市<br><strong>{_safe(info.get('dominant_city'))}</strong></div><div>高频技能<br><strong>{_safe(skill_text)}</strong></div></div></div>""", unsafe_allow_html=True)
             except Exception as exc: st.warning(f"岗位聚类不可用：{exc}")
 
     with st.container(border=True):
         st.markdown('<div class="section-label">招聘企业画像</div>', unsafe_allow_html=True)
         try:
-            company_profiles = analysis_service.company_profile(jobs).head(10).rename(
+            company_profiles = analysis_service.company_profile(jobs).head(10).copy()
+            company_profiles["company_size"] = company_profiles["company_size"].map(_display_text)
+            company_profiles["company_nature"] = company_profiles["company_nature"].map(_display_text)
+            company_profiles["industry"] = company_profiles["industry"].map(_display_text)
+            company_profiles["salary_summary"] = company_profiles["salary_summary"].map(_format_salary_summary)
+            company_profiles["skill_summary"] = company_profiles["skill_summary"].map(_format_skill_summary)
+            company_profiles = company_profiles.rename(
                 columns={
                     "company": "公司名称",
-                    "company_size": "公司规模",
-                    "company_nature": "公司性质",
+                    "company_size": "企业规模",
+                    "company_nature": "企业性质",
                     "industry": "所属行业",
-                    "salary_summary": "薪资概况",
-                    "skill_summary": "技能概况",
+                    "salary_summary": "薪资概况（元/月）",
+                    "skill_summary": "技能需求（出现次数）",
                 }
             )
             st.dataframe(company_profiles, width='stretch', hide_index=True, height=360)

@@ -18,6 +18,7 @@ import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
+from src.data.market import add_job_category, classify_job_category
 from src.data.schema import (
     JOB_COLUMNS,
     MULTI_FACTOR_RECOMMENDATION_COLUMNS,
@@ -63,12 +64,9 @@ def _multifactor_jobs(jobs: pd.DataFrame) -> pd.DataFrame:
 
 
 def _job_texts(jobs: pd.DataFrame) -> list[str]:
-    """岗位侧 TF-IDF 文本：标题、技能、描述、公司；缺列按空处理。"""
+    """岗位侧 TF-IDF 文本：标题、技能、描述、公司。"""
     columns = ["title", "skills", "description", "company"]
-    texts: list[str] = []
-    for row in jobs.itertuples(index=False):
-        texts.append(" ".join(_text(getattr(row, column, "")) for column in columns))
-    return texts
+    return [" ".join(_text(value) for value in row) for row in jobs[columns].fillna("").values.tolist()]
 
 
 def _profile_text(profile: StudentProfile) -> str:
@@ -127,8 +125,9 @@ def _restrict_to_role(
 
     Domain labels in a job's ``skills`` field (for example ``财务`` on a banking
     Java role) are not enough to establish that the job itself is a target role.
-    If no title matches, retain the full set so fuzzy or newly named roles still
-    use the text scorer.
+    If the title family is too sparse, a recognized domain category is used as
+    a second guard. If neither guard has enough rows, retain the full set so
+    fuzzy or newly named roles still use the text scorer.
     """
     role = _text(target_role).lower()
     if not role:
@@ -139,7 +138,17 @@ def _restrict_to_role(
     if core and core != role:
         mask |= titles.str.contains(core, regex=False)
     enough_matches = limit is None or int(mask.sum()) >= min(limit, len(jobs))
-    return jobs.loc[mask].reset_index(drop=True) if mask.any() and enough_matches else jobs
+    if mask.any() and enough_matches:
+        return jobs.loc[mask].reset_index(drop=True)
+
+    category = classify_job_category(role)
+    if category != "其他":
+        categorized = add_job_category(jobs)
+        category_mask = categorized["job_category"] == category
+        enough_category = int(category_mask.sum()) >= min(limit or len(jobs), len(jobs))
+        if category_mask.any() and enough_category:
+            return jobs.loc[category_mask].reset_index(drop=True)
+    return jobs
 
 
 def _skill_match_score(profile_skills: set[str], job_skills: set[str], matched: set[str]) -> float:
@@ -333,10 +342,10 @@ def recommend_jobs_multifactor(
         matched = sorted(profile_skills & job_skills)
         missing_skills = sorted(job_skills - profile_skills)
         skill_score = _skill_match_score(profile_skills, job_skills, set(matched))
-        city_ok = bool(profile.preferred_city) and profile.preferred_city.lower() in _text(getattr(row, "city", "")).lower()
-        experience_ok = bool(profile.experience) and profile.experience.lower() in _text(getattr(row, "experience", "")).lower()
-        education_ok = bool(profile.education) and profile.education.lower() in _text(getattr(row, "education", "")).lower()
-        searchable = " ".join(_text(getattr(row, column, "")) for column in ("title", "skills", "description", "company")).lower()
+        city_ok = bool(profile.preferred_city) and profile.preferred_city.lower() in _text(row.city).lower()
+        experience_ok = bool(profile.experience) and profile.experience.lower() in _text(row.experience).lower()
+        education_ok = bool(profile.education) and profile.education.lower() in _text(row.education).lower()
+        searchable = " ".join(_text(value) for value in (row.title, row.skills, row.description, row.company)).lower()
         major_ok = bool(profile.major) and profile.major.lower() in searchable
         similarity = float(similarities[index]) if similarities is not None else 0.0
         salary_ok = _salary_overlap(profile.expected_salary_min, profile.expected_salary_max, row.salary_min, row.salary_max)

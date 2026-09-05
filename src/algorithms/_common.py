@@ -119,6 +119,24 @@ def top_skills(jobs: pd.DataFrame, n: int = 10) -> list[tuple[str, int]]:
     return sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:n]
 
 
+def _feature_skill_vocabulary(jobs: pd.DataFrame, n: int) -> list[str]:
+    """Use each job category's frequent skills instead of one global Top-N list."""
+    if "job_category" not in jobs.columns:
+        return [skill for skill, _ in top_skills(jobs, n)]
+    categories = sorted(
+        category
+        for category in jobs["job_category"].fillna("").astype(str).unique()
+        if category
+    )
+    vocabulary: list[str] = []
+    for category in categories:
+        group = jobs[jobs["job_category"].fillna("").astype(str) == category]
+        for skill, _ in top_skills(group, n):
+            if skill not in vocabulary:
+                vocabulary.append(skill)
+    return vocabulary or [skill for skill, _ in top_skills(jobs, n)]
+
+
 def education_level(value: object) -> int:
     """学历映射为有序数值；未知或缺失返回 0。"""
     if value is None:
@@ -219,7 +237,7 @@ def encode_job_features(
     validate_jobs(jobs)
     features: dict[str, pd.Series] = {}
 
-    skill_top = [skill for skill, _ in top_skills(jobs, top_skills_n)]
+    skill_top = _feature_skill_vocabulary(jobs, top_skills_n)
     for skill in skill_top:
         features[f"skill_{skill}"] = jobs["skills"].fillna("").map(
             lambda raw: 1.0 if skill in split_skills(raw) else 0.0
@@ -254,6 +272,17 @@ def encode_job_features(
                 features[f"{column}_{value}"] = (
                     jobs[column].fillna("").astype(str) == value
                 ).astype(float)
+
+    if "job_category" in jobs.columns:
+        categories = sorted(
+            category
+            for category in jobs["job_category"].fillna("").astype(str).unique()
+            if category
+        )
+        for category in categories:
+            features[f"job_category_{category}"] = (
+                jobs["job_category"].fillna("").astype(str) == category
+            ).astype(float)
 
     if include_salary and "salary_avg" in jobs.columns:
         salary = pd.to_numeric(jobs["salary_avg"], errors="coerce")

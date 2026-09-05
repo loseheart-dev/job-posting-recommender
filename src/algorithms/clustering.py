@@ -15,6 +15,7 @@ from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 
 from src.algorithms._common import encode_job_features, top_skills, validate_jobs
+from src.data.market import add_job_category
 from src.data.schema import CLUSTER_OUTPUT_COLUMNS
 
 
@@ -33,6 +34,10 @@ def _cluster_summary(jobs: pd.DataFrame, cluster: int) -> dict[str, object]:
         summary["salary_avg"] = None
         summary["salary_range"] = None
     summary["top_skills"] = [skill for skill, _ in top_skills(subset, 5)]
+    categorized = add_job_category(subset)
+    summary["dominant_category"] = str(
+        categorized["job_category"].value_counts().index[0]
+    )
     if "education" in subset.columns:
         summary["dominant_education"] = str(
             subset["education"].fillna("未知").value_counts().index[0]
@@ -63,7 +68,10 @@ def cluster_jobs(
             f"岗位样本不足（{len(jobs)} 条，至少需要 {n_clusters * 2} 条）才能进行 {n_clusters} 类聚类"
         )
 
-    features = encode_job_features(jobs, include_salary=True)
+    # Derived category features keep a technology-heavy source from determining
+    # every cluster through its global Top-N skills alone.
+    feature_jobs = add_job_category(jobs)
+    features = encode_job_features(feature_jobs, include_salary=True)
     feature_columns = [column for column in features.columns if column != "job_id"]
     X = features[feature_columns].astype(float)
     scaler = StandardScaler()

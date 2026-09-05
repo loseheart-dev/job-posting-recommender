@@ -3,6 +3,7 @@ import math
 import numpy as np
 import pandas as pd
 
+from src.algorithms._common import split_skills
 from src.data.schema import FILTER_KEYS, JOB_COLUMNS
 
 
@@ -41,10 +42,8 @@ def summarize_jobs(jobs: pd.DataFrame) -> dict[str, object]:
     salaries = pd.to_numeric(result["salary_avg"], errors="coerce").dropna()
     skill_counts: dict[str, int] = {}
     for value in result["skills"].fillna(""):
-        for skill in str(value).split(";"):
-            skill = skill.strip()
-            if skill:
-                skill_counts[skill] = skill_counts.get(skill, 0) + 1
+        for skill in split_skills(value):
+            skill_counts[skill] = skill_counts.get(skill, 0) + 1
     return {
         "job_count": int(len(result)),
         "salary_count": int(len(salaries)),

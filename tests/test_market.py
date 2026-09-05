@@ -36,6 +36,7 @@ def test_cluster_uses_category_features_and_explains_category() -> None:
     clustered, summaries = cluster_jobs(jobs, n_clusters=3)
     assert list(clustered.columns) == list(JOB_COLUMNS) + ["cluster_id"]
     assert all("dominant_category" in summary for summary in summaries.values())
+    assert all("top_skills_by_category" in summary for summary in summaries.values())
 
 
 def test_summary_uses_the_same_whitelisted_skills_as_analysis() -> None:

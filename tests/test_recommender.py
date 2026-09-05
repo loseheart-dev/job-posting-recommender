@@ -147,6 +147,15 @@ class RecommenderMultifactorTest(unittest.TestCase):
         self.assertTrue(result["title"].str.contains("财务", regex=False).all())
         self.assertTrue((result["matched_skills"] == "财务").all())
 
+    def test_domain_category_fallback_excludes_unrelated_titles(self) -> None:
+        jobs = sample_jobs().copy()
+        jobs.loc[:3, ["title", "skills"]] = ["财务专员", "财务;会计"]
+        jobs.loc[4:, ["title", "skills"]] = ["react前端开发", "React;财务"]
+        result = recommend_jobs_multifactor(
+            {"target_role": "会计", "skills": "会计"}, jobs, top_k=3
+        )
+        self.assertTrue(result["title"].str.contains("财务", regex=False).all())
+
     def test_weights_sum_to_one(self) -> None:
         # 权重约定锁定：组合分权重之和必须为 1（与模块文档一致）
         assert abs(sum(WEIGHTS.values()) - 1.0) < 1e-9

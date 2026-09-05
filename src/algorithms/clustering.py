@@ -33,11 +33,17 @@ def _cluster_summary(jobs: pd.DataFrame, cluster: int) -> dict[str, object]:
     else:
         summary["salary_avg"] = None
         summary["salary_range"] = None
-    summary["top_skills"] = [skill for skill, _ in top_skills(subset, 5)]
     categorized = add_job_category(subset)
+    summary["top_skills"] = [skill for skill, _ in top_skills(subset, 5)]
     summary["dominant_category"] = str(
         categorized["job_category"].value_counts().index[0]
     )
+    top_skills_by_category: dict[str, list[str]] = {}
+    for category, group in categorized.groupby("job_category", sort=True):
+        category_top = top_skills(group, 3)
+        if category_top:
+            top_skills_by_category[str(category)] = [skill for skill, _ in category_top]
+    summary["top_skills_by_category"] = top_skills_by_category
     if "education" in subset.columns:
         summary["dominant_education"] = str(
             subset["education"].fillna("未知").value_counts().index[0]

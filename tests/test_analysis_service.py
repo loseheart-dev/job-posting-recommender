@@ -79,6 +79,8 @@ class AnalysisServiceNormalTest(unittest.TestCase):
         out = skill_graph(self.jobs)
         self.assertEqual(set(out), set(SKILL_GRAPH_KEYS))
         self.assertTrue(out["skill_frequency"])
+        technical = skill_graph(self.jobs, category="技术")
+        self.assertTrue(technical["skill_frequency"])
 
     def test_company_profile(self):
         out = company_profile(self.jobs)

@@ -25,7 +25,7 @@
 - 推荐：目标岗位“数据分析师”、期望城市“杭州”、技能“Python;SQL”成功生成 5 条多因素推荐。
 - 空值：缺失技能显示“暂无”，不再渲染 `nan`；空数据、无筛选结果、模型错误和采集错误均有独立提示路径。
 - 可访问性：表单有可读标签，使用原生键盘可达控件，动效遵循 `prefers-reduced-motion`。
-- 控制台：未发现应用 error；Streamlit 当前版本仍会提示 `use_container_width` 弃用 warning。
+- 控制台：未发现应用 error 或 `use_container_width` 弃用 warning。
 
 ## 验证命令
 

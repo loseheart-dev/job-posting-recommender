@@ -499,7 +499,7 @@ def _render_pagination(meta: dict[str, object], key_prefix: str) -> None:
                     str(number),
                     key=f"{key_prefix}_page_{number}",
                     type="primary" if number == page else "secondary",
-                    use_container_width=True,
+                    width='stretch',
                 ):
                     st.session_state[f"{key_prefix}_page"] = number
                     st.rerun()
@@ -512,15 +512,16 @@ def _render_pagination(meta: dict[str, object], key_prefix: str) -> None:
         )
 
 
-def render_home(jobs: pd.DataFrame) -> None:
+def render_home(jobs: pd.DataFrame, url: str | None = None) -> None:
     st.set_page_config(page_title="Career Signal", layout="wide", initial_sidebar_state="expanded")
     _apply_style()
     context = getattr(st, "context", None)
-    if _is_about_page_url(getattr(context, "url", None)):
+    current_url = url if url is not None else getattr(context, "url", None)
+    if _is_about_page_url(current_url):
         _render_about_page()
         return
     page = _sidebar(len(jobs))
-    if _is_interpretation_page_url(getattr(context, "url", None)):
+    if _is_interpretation_page_url(current_url):
         _render_human_interpretation(jobs)
         return
     if jobs.empty and page != "采集管理":
@@ -548,7 +549,7 @@ def _render_overview(jobs: pd.DataFrame) -> None:
             st.markdown('<div class="section-label">城市分布（Top 10）</div>', unsafe_allow_html=True)
             city_df = jobs["city"].fillna("未知").value_counts().head(10).sort_values().rename_axis("城市").reset_index(name="岗位数量")
             fig = px.bar(city_df, x="岗位数量", y="城市", orientation="h", color_discrete_sequence=[COLORS["primary"]])
-            st.plotly_chart(_style_figure(fig), use_container_width=True, config={"displayModeBar": False})
+            st.plotly_chart(_style_figure(fig), width='stretch', config={"displayModeBar": False})
     with chart_cols[1]:
         with st.container(border=True):
             st.markdown('<div class="section-label">薪资区间分布</div>', unsafe_allow_html=True)
@@ -558,7 +559,7 @@ def _render_overview(jobs: pd.DataFrame) -> None:
             else:
                 dist_df = dist_df.sort_values("min")
                 fig = px.bar(dist_df, x="range", y="count", labels={"range": "薪资区间（元/月）", "count": "岗位数量"}, color_discrete_sequence=[COLORS["primary"]])
-                st.plotly_chart(_style_figure(fig), use_container_width=True, config={"displayModeBar": False})
+                st.plotly_chart(_style_figure(fig), width='stretch', config={"displayModeBar": False})
     with chart_cols[2]:
         with st.container(border=True):
             st.markdown('<div class="section-label">学历要求分布</div>', unsafe_allow_html=True)
@@ -567,7 +568,7 @@ def _render_overview(jobs: pd.DataFrame) -> None:
                 st.info("暂无学历数据。")
             else:
                 fig = px.pie(edu_df, names="学历", values="岗位数量", hole=.55, color_discrete_sequence=[COLORS["primary"], "#21B9A6", "#F4B740", "#8D72E1", "#AAB5C7", "#5C9CF5"])
-                st.plotly_chart(_style_figure(fig), use_container_width=True, config={"displayModeBar": False})
+                st.plotly_chart(_style_figure(fig), width='stretch', config={"displayModeBar": False})
     category_df = pd.DataFrame(summary.get("category_metrics", []))
     if not category_df.empty:
         metric_cols = st.columns(2, gap="small")
@@ -586,7 +587,7 @@ def _render_overview(jobs: pd.DataFrame) -> None:
                     color_discrete_sequence=[COLORS["primary"]],
                 )
                 fig.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-                st.plotly_chart(_style_figure(fig), use_container_width=True, config={"displayModeBar": False})
+                st.plotly_chart(_style_figure(fig), width='stretch', config={"displayModeBar": False})
         with metric_cols[1]:
             with st.container(border=True):
                 st.markdown('<div class="section-label">类别内技能覆盖率</div>', unsafe_allow_html=True)
@@ -602,7 +603,7 @@ def _render_overview(jobs: pd.DataFrame) -> None:
                     color_discrete_sequence=[COLORS["success"]],
                 )
                 fig.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-                st.plotly_chart(_style_figure(fig), use_container_width=True, config={"displayModeBar": False})
+                st.plotly_chart(_style_figure(fig), width='stretch', config={"displayModeBar": False})
     _render_overview_workspace(jobs)
 
 
@@ -632,7 +633,7 @@ def _render_overview_workspace(jobs: pd.DataFrame) -> None:
                     "30K 以上": {"salary_min": 30000},
                 }[salary_choice]
                 action_col, reset_col, _ = st.columns([1, 1, 7])
-                submitted = action_col.form_submit_button("搜索", type="primary", use_container_width=True)
+                submitted = action_col.form_submit_button("搜索", type="primary", width='stretch')
                 reset = reset_col.form_submit_button("重置")
             if submitted:
                 st.session_state["overview_results"] = filter_jobs(jobs, {
@@ -660,7 +661,7 @@ def _render_overview_workspace(jobs: pd.DataFrame) -> None:
             table_columns = ["title", "company", "city", "salary_text", "education", "experience", "skills"]
             labels = {"title": "职位名称", "company": "公司名称", "city": "城市", "salary_text": "薪资范围", "education": "学历", "experience": "经验", "skills": "技能要求"}
             st.markdown(f'<div class="muted" style="font-size:.78rem;margin:.45rem 0 .5rem">共找到 {int(page_meta["total"]):,} 条岗位</div>', unsafe_allow_html=True)
-            st.dataframe(page_meta["items"][table_columns].rename(columns=labels), use_container_width=True, hide_index=True, height=330)
+            st.dataframe(page_meta["items"][table_columns].rename(columns=labels), width='stretch', hide_index=True, height=330)
             _render_pagination(page_meta, "overview")
     with recommendation_col:
         with st.container(border=True):
@@ -714,8 +715,8 @@ def _render_search(jobs: pd.DataFrame) -> None:
             salary_min_value = st.text_input("薪资下限（元/月）", placeholder="最低薪资，如：10000", key="search_salary_min")
             salary_max_value = st.text_input("薪资上限（元/月）", placeholder="最高薪资，如：50000", key="search_salary_max")
         action1, action2, _ = st.columns([1, 1, 7])
-        submitted = action1.form_submit_button("搜索", type="primary", use_container_width=True)
-        reset = action2.form_submit_button("重置", on_click=_reset_search_widgets, use_container_width=True)
+        submitted = action1.form_submit_button("搜索", type="primary", width='stretch')
+        reset = action2.form_submit_button("重置", on_click=_reset_search_widgets, width='stretch')
     if submitted:
         try:
             st.session_state["search_results"] = filter_jobs(jobs, {
@@ -749,7 +750,7 @@ def _render_search(jobs: pd.DataFrame) -> None:
     display_columns = [column for column in ["title", "company", "city", "salary_text", "education", "experience", "skills"] if column in result.columns]
     labels = {"title": "职位名称", "company": "公司名称", "city": "城市", "salary_text": "薪资范围", "education": "学历", "experience": "经验", "skills": "技能要求"}
     with table_col:
-        st.dataframe(page_result[display_columns].rename(columns=labels), use_container_width=True, hide_index=True, height=510)
+        st.dataframe(page_result[display_columns].rename(columns=labels), width='stretch', hide_index=True, height=510)
         _render_pagination(page_meta, "search")
     with detail_col:
         selected_index = st.selectbox(
@@ -770,7 +771,7 @@ def _render_search(jobs: pd.DataFrame) -> None:
             <div class="muted" style="font-size:.75rem;margin-top:.7rem">数据来源：{_safe(row.get('source'))}</div></div>""",
             unsafe_allow_html=True,
         )
-        st.download_button("下载筛选结果 CSV", result.to_csv(index=False).encode("utf-8-sig"), file_name="filtered_jobs.csv", mime="text/csv", use_container_width=True)
+        st.download_button("下载筛选结果 CSV", result.to_csv(index=False).encode("utf-8-sig"), file_name="filtered_jobs.csv", mime="text/csv", width='stretch')
 
 
 def _render_analysis(jobs: pd.DataFrame) -> None:
@@ -782,7 +783,7 @@ def _render_analysis(jobs: pd.DataFrame) -> None:
             try:
                 dist_df = _compact_salary_distribution(pd.DataFrame(salary_distribution(jobs))).sort_values("min")
                 fig = px.bar(dist_df, x="count", y="range", orientation="h", labels={"range": "薪资区间（元/月）", "count": "岗位数量"}, color_discrete_sequence=[COLORS["salary"]])
-                st.plotly_chart(_style_figure(fig, 360), use_container_width=True, config={"displayModeBar": False})
+                st.plotly_chart(_style_figure(fig, 360), width='stretch', config={"displayModeBar": False})
             except ValueError as exc: st.warning(str(exc))
     with model_col:
         with st.container(border=True):
@@ -825,7 +826,7 @@ def _render_analysis(jobs: pd.DataFrame) -> None:
             salary_factors["影响方向"] = salary_factors["影响方向"].replace(
                 {"higher": "偏高", "lower": "偏低", "neutral": "接近整体水平"}
             )
-            st.dataframe(salary_factors, use_container_width=True, hide_index=True, height=360)
+            st.dataframe(salary_factors, width='stretch', hide_index=True, height=360)
         except Exception as exc: st.warning(f"薪资因素分析不可用：{exc}")
 
     analysis_category = st.selectbox(
@@ -858,7 +859,7 @@ def _render_analysis(jobs: pd.DataFrame) -> None:
                 if balanced:
                     freq_df[metric] = freq_df[metric] * 100
                 fig = px.bar(freq_df, x=metric, y="技能", orientation="h", color_discrete_sequence=[COLORS["primary"]])
-                st.plotly_chart(_style_figure(fig, 360), use_container_width=True, config={"displayModeBar": False})
+                st.plotly_chart(_style_figure(fig, 360), width='stretch', config={"displayModeBar": False})
                 st.caption("全部岗位使用类别等权技能覆盖率；选择具体类别后显示该类别的岗位出现次数。" if balanced else "当前为所选岗位类别的技能出现次数。")
             except Exception as exc: st.warning(f"能力需求图谱不可用：{exc}")
     with cluster_col:
@@ -897,7 +898,7 @@ def _render_analysis(jobs: pd.DataFrame) -> None:
                     "skill_summary": "技能需求（出现次数）",
                 }
             )
-            st.dataframe(company_profiles, use_container_width=True, hide_index=True, height=360)
+            st.dataframe(company_profiles, width='stretch', hide_index=True, height=360)
         except Exception as exc: st.warning(f"企业画像不可用：{exc}")
 
 
@@ -920,7 +921,7 @@ def _render_recommendation(jobs: pd.DataFrame) -> None:
                 work_experience = st.text_area("工作或项目经历", placeholder="简要描述相关经历", height=92)
                 expected_salary_min = col1.number_input("期望月薪下限", min_value=0, step=1000, value=0)
                 expected_salary_max = col2.number_input("期望月薪上限", min_value=0, step=1000, value=0)
-                submitted = st.form_submit_button("生成推荐", type="primary", use_container_width=True)
+                submitted = st.form_submit_button("生成推荐", type="primary", width='stretch')
     if submitted:
         try:
             profile = StudentProfile.from_mapping({"target_role": target_role, "education": education, "major": major, "school": school, "preferred_city": preferred_city, "work_years": work_years or None, "skills": skills, "work_experience": work_experience, "expected_salary_min": expected_salary_min or None, "expected_salary_max": expected_salary_max or None})
@@ -977,14 +978,14 @@ def _render_collection(jobs: pd.DataFrame) -> None:
         <div>Base URL<strong>{_safe(site.base_url)}</strong></div><div>关键词<strong>{_safe('、'.join(site.keywords), '未设置')}</strong></div><div>城市<strong>{_safe('、'.join(site.cities), '未设置')}</strong></div>
         <div>采集策略<strong>{_safe(site.crawl_strategy.upper())}</strong></div><div>最大深度<strong>{site.max_depth}</strong></div><div>频率<strong>{_safe(site.frequency)}</strong></div></div></div>""", unsafe_allow_html=True)
         actions = st.columns([1.25, .75, .75, 6])
-        if actions[0].button("触发采集任务", key=f"trigger_{site.site_id}", type="primary", use_container_width=True):
+        if actions[0].button("触发采集任务", key=f"trigger_{site.site_id}", type="primary", width='stretch'):
             try: task_service.trigger_task(site.site_id); st.rerun()
             except Exception as exc: st.error(str(exc))
         action_label = "停用" if site.enabled else "启用"
-        if actions[1].button(action_label, key=f"toggle_{site.site_id}", use_container_width=True):
+        if actions[1].button(action_label, key=f"toggle_{site.site_id}", width='stretch'):
             try: site_service.set_site_enabled(site.site_id, not site.enabled); st.rerun()
             except Exception as exc: st.error(str(exc))
-        if actions[2].button("删除", key=f"remove_{site.site_id}", use_container_width=True):
+        if actions[2].button("删除", key=f"remove_{site.site_id}", width='stretch'):
             try: site_service.remove_site(site.site_id); st.rerun()
             except Exception as exc: st.error(str(exc))
     form_cols = st.columns(2, gap="small")
@@ -1000,7 +1001,7 @@ def _render_collection(jobs: pd.DataFrame) -> None:
                 edit_strategy = col1.selectbox("采集策略", ["bfs", "dfs"], index=0 if edit_site.crawl_strategy == "bfs" else 1)
                 frequencies = ["once", "daily", "twice_daily"]; edit_frequency = col2.selectbox("频率", frequencies, index=frequencies.index(edit_site.frequency))
                 edit_max_depth = col1.number_input("最大深度", min_value=0, step=1, value=edit_site.max_depth); edit_start_at = col2.text_input("开始时间", value=edit_site.start_at)
-                edit_submitted = st.form_submit_button("保存修改", type="primary", use_container_width=True)
+                edit_submitted = st.form_submit_button("保存修改", type="primary", width='stretch')
             if edit_submitted:
                 try:
                     site_service.update_site(edit_site_id, {"site_name": edit_site_name, "base_url": edit_base_url, "keywords": edit_keywords, "cities": edit_cities, "crawl_strategy": edit_strategy, "frequency": edit_frequency, "max_depth": edit_max_depth, "start_at": edit_start_at}); st.success("网站配置已保存。")
@@ -1014,7 +1015,7 @@ def _render_collection(jobs: pd.DataFrame) -> None:
             new_base_url = st.text_input("Base URL", placeholder="https://example.com"); new_keywords = st.text_input("关键词", placeholder="逗号分隔"); new_cities = st.text_input("城市", placeholder="逗号分隔")
             new_strategy = col1.selectbox("采集策略", ["bfs", "dfs"], key="new_strategy"); new_frequency = col2.selectbox("频率", ["once", "daily", "twice_daily"], key="new_frequency")
             new_max_depth = col1.number_input("最大深度", min_value=0, step=1, value=1, key="new_depth"); new_start_at = col2.text_input("开始时间", placeholder="2026-09-04T08:00:00", key="new_start")
-            add_submitted = st.form_submit_button("新增站点", use_container_width=True)
+            add_submitted = st.form_submit_button("新增站点", width='stretch')
         if add_submitted:
             try:
                 site_service.add_site({"site_id": new_site_id, "site_name": new_site_name, "base_url": new_base_url, "keywords": new_keywords, "cities": new_cities, "crawl_strategy": new_strategy, "start_at": new_start_at, "frequency": new_frequency, "max_depth": new_max_depth}); st.success("网站配置已新增。")
@@ -1023,4 +1024,4 @@ def _render_collection(jobs: pd.DataFrame) -> None:
     if not tasks: st.info("暂无采集任务记录。")
     else:
         task_df = pd.DataFrame(task.to_dict() for task in tasks).rename(columns={"task_id": "任务 ID", "site_id": "站点", "status": "状态", "started_at": "开始时间", "finished_at": "结束时间", "raw_count": "原始记录数", "parsed_count": "解析成功数", "error_count": "异常数", "error_message": "错误信息"})
-        st.dataframe(task_df, use_container_width=True, hide_index=True, height=260)
+        st.dataframe(task_df, width='stretch', hide_index=True, height=260)

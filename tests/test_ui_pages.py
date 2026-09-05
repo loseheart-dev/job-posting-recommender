@@ -1,5 +1,7 @@
 import unittest
 
+from streamlit.testing.v1 import AppTest
+
 from src.ui.pages import (
     ABOUT_URL,
     INTERPRETATION_URL,
@@ -30,6 +32,25 @@ class UiFormattingTest(unittest.TestCase):
         self.assertTrue(_is_interpretation_page_url("http://localhost:8501/interpretation.html"))
         self.assertFalse(_is_interpretation_page_url("http://localhost:8501/"))
         self.assertEqual(INTERPRETATION_URL, "/interpretation.html")
+
+    def test_about_route_renders_without_app_error(self) -> None:
+        app = AppTest.from_string(
+            "from src.ui.pages import render_home, ABOUT_URL\n"
+            "import pandas as pd\n"
+            "render_home(pd.DataFrame(), url=ABOUT_URL)\n"
+        ).run(timeout=20)
+        self.assertFalse(app.exception)
+        self.assertFalse(app.error)
+
+    def test_interpretation_route_renders_without_app_error(self) -> None:
+        app = AppTest.from_string(
+            "from src.ui.pages import render_home, INTERPRETATION_URL\n"
+            "from src.data.schema import JOB_COLUMNS\n"
+            "import pandas as pd\n"
+            "render_home(pd.DataFrame(columns=JOB_COLUMNS), url=INTERPRETATION_URL)\n"
+        ).run(timeout=20)
+        self.assertFalse(app.exception)
+        self.assertFalse(app.error)
 
 
 if __name__ == "__main__":

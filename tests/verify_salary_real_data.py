@@ -3,8 +3,9 @@
 
 默认优先读取 ``data/processed/jobs.csv``；该文件不存在时回退到仓库内的
 ``tests/fixtures/expanded_jobs.csv``。两者都必须是按 ``JOB_COLUMNS`` 清洗的标准岗位数据。
+回退到 fixture 时必须显式指定 ``--output``，避免覆盖已提交的真实数据审计快照。
 
-用法：``python -m tests.verify_salary_real_data``
+用法：``python -m tests.verify_salary_real_data --input tests/fixtures/expanded_jobs.csv --output /tmp/salary-verification.json``
 也可用 ``--input`` 指定另一份已经清洗的标准岗位表。
 """
 
@@ -104,6 +105,10 @@ def main() -> None:
     args = parser.parse_args()
 
     input_path = _choose_input(args.input)
+    if args.input is None and input_path == FIXTURE_PATH and args.output == DEFAULT_OUTPUT:
+        raise SystemExit(
+            "data/processed/jobs.csv 不存在，已回退测试 fixture；请显式指定 --output，避免覆盖真实数据审计快照"
+        )
     result = verify(input_path)
     result["generated_at"] = datetime.now(timezone.utc).isoformat()
     args.output.parent.mkdir(parents=True, exist_ok=True)

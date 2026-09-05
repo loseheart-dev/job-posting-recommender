@@ -1,5 +1,6 @@
+import unittest
+
 import pandas as pd
-import pytest
 
 from src.data.schema import JOB_COLUMNS, JobRecord
 from src.services.job_service import education_distribution, paginate_jobs
@@ -14,47 +15,57 @@ def _jobs() -> pd.DataFrame:
     return pd.DataFrame(rows)[list(JOB_COLUMNS)]
 
 
-def test_education_distribution_returns_ranked_contract() -> None:
-    assert education_distribution(_jobs()) == [
-        {"education": "本科", "count": 2},
-        {"education": "硕士", "count": 1},
-    ]
+class JobServiceTest(unittest.TestCase):
+    def test_education_distribution_returns_ranked_contract(self) -> None:
+        self.assertEqual(
+            education_distribution(_jobs()),
+            [
+                {"education": "本科", "count": 2},
+                {"education": "硕士", "count": 1},
+            ],
+        )
 
 
-def test_education_distribution_handles_empty_values_and_empty_data() -> None:
-    jobs = _jobs()
-    jobs.loc[0, "education"] = ""
-    assert education_distribution(jobs, top_k=2)[0] == {"education": "不限", "count": 1}
-    assert education_distribution(pd.DataFrame(columns=JOB_COLUMNS)) == []
+    def test_education_distribution_handles_empty_values_and_empty_data(self) -> None:
+        jobs = _jobs()
+        jobs.loc[0, "education"] = ""
+        self.assertEqual(
+            education_distribution(jobs, top_k=2)[0],
+            {"education": "不限", "count": 1},
+        )
+        self.assertEqual(education_distribution(pd.DataFrame(columns=JOB_COLUMNS)), [])
 
 
-def test_paginate_jobs_returns_items_and_consistent_metadata() -> None:
-    result = paginate_jobs(_jobs(), page=2, page_size=2)
-    assert result["total"] == 3
-    assert result["page"] == 2
-    assert result["page_size"] == 2
-    assert result["total_pages"] == 2
-    assert result["items"]["job_id"].tolist() == ["3"]
+    def test_paginate_jobs_returns_items_and_consistent_metadata(self) -> None:
+        result = paginate_jobs(_jobs(), page=2, page_size=2)
+        self.assertEqual(result["total"], 3)
+        self.assertEqual(result["page"], 2)
+        self.assertEqual(result["page_size"], 2)
+        self.assertEqual(result["total_pages"], 2)
+        self.assertEqual(result["items"]["job_id"].tolist(), ["3"])
 
 
-def test_paginate_jobs_clamps_after_filter_result_shrinks() -> None:
-    result = paginate_jobs(_jobs(), page=99, page_size=2)
-    assert result["page"] == 2
-    assert result["items"]["job_id"].tolist() == ["3"]
-    empty = paginate_jobs(pd.DataFrame(columns=JOB_COLUMNS), page=9, page_size=2)
-    assert empty["page"] == 1
-    assert empty["total_pages"] == 0
-    assert empty["items"].empty
+    def test_paginate_jobs_clamps_after_filter_result_shrinks(self) -> None:
+        result = paginate_jobs(_jobs(), page=99, page_size=2)
+        self.assertEqual(result["page"], 2)
+        self.assertEqual(result["items"]["job_id"].tolist(), ["3"])
+        empty = paginate_jobs(pd.DataFrame(columns=JOB_COLUMNS), page=9, page_size=2)
+        self.assertEqual(empty["page"], 1)
+        self.assertEqual(empty["total_pages"], 0)
+        self.assertTrue(empty["items"].empty)
 
 
-@pytest.mark.parametrize(
-    ("function", "kwargs"),
-    [
-        (education_distribution, {"top_k": 0}),
-        (paginate_jobs, {"page": 0}),
-        (paginate_jobs, {"page_size": 0}),
-    ],
-)
-def test_new_service_interfaces_reject_invalid_paging_arguments(function, kwargs) -> None:
-    with pytest.raises(ValueError):
-        function(_jobs(), **kwargs)
+    def test_new_service_interfaces_reject_invalid_paging_arguments(self) -> None:
+        cases = [
+            (education_distribution, {"top_k": 0}),
+            (paginate_jobs, {"page": 0}),
+            (paginate_jobs, {"page_size": 0}),
+        ]
+        for function, kwargs in cases:
+            with self.subTest(function=function.__name__, kwargs=kwargs):
+                with self.assertRaises(ValueError):
+                    function(_jobs(), **kwargs)
+
+
+if __name__ == "__main__":
+    unittest.main()

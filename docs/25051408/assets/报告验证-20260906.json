@@ -1,0 +1,87 @@
+{
+  "verified_on": "2026-09-06",
+  "code_base": "58a7a7a",
+  "environment": {
+    "python": "3.13.3",
+    "pandas": "2.3.3",
+    "numpy": "2.5.2",
+    "scikit-learn": "1.9.0",
+    "streamlit": "1.63.0",
+    "plotly": "6.9.0",
+    "pytest": "9.1.1"
+  },
+  "data": {
+    "input": "data/processed/jobs.csv",
+    "sha256": "7eee4bbf07022a0d5836eb7c330d3b66f3446467f0cfbff4d5740416e96ce1b3",
+    "rows": 20872,
+    "columns": 21,
+    "cities": 32,
+    "duplicate_job_ids": 0,
+    "salary_count": 19807,
+    "missing_salary_count": 1065,
+    "salary_coverage_percent": 94.9,
+    "salary_min": 750.0,
+    "salary_max": 255000.0,
+    "salary_mean": 10335.58,
+    "high_salary_retained_count": 22,
+    "low_salary_flagged_count": 0,
+    "category_counts": {
+      "技术": 7015,
+      "行政": 3500,
+      "制造": 3021,
+      "销售": 2774,
+      "其他": 2358,
+      "财务": 2204
+    },
+    "missing_fields": {
+      "description": 20796,
+      "company_intro": 20872,
+      "company_nature": 20872,
+      "work_type": 20872
+    }
+  },
+  "salary_verification": {
+    "method": "tests.verify_salary_real_data.verify(Path(\"data/processed/jobs.csv\"))",
+    "status": "passed",
+    "random_forest": {
+      "mae": 3897.09,
+      "r2": 0.2019,
+      "test_size": 0.3,
+      "random_state": 42
+    },
+    "checks": [
+      "standard 21 columns",
+      "high monthly salaries not flagged",
+      "distribution count equals valid salary count",
+      "finite model metrics"
+    ]
+  },
+  "tests": {
+    "command": ".venv/bin/python -m pytest -q",
+    "result": "75 passed, 3 subtests passed in 2.01s",
+    "exit_code": 0
+  },
+  "app_integration": {
+    "command": ".venv/bin/python -m tests.verify_app_integration",
+    "result": "Z7 app module integration verification PASSED",
+    "exit_code": 0,
+    "input": "tests/fixtures/expanded_jobs.csv first 300 rows",
+    "modules": [
+      "市场概览",
+      "岗位检索",
+      "分析洞察",
+      "个性化推荐",
+      "采集管理"
+    ],
+    "runtime_data_sha256_restored": true
+  },
+  "limitations": [
+    "No live collection performed this turn",
+    "AppTest is not browser visual or remote deployment acceptance",
+    "In-memory collection task creation does not execute collector",
+    "Spark not implemented",
+    "Model scores are not calibrated hiring probabilities",
+    "Runtime CSV is gitignored and must be retained separately for exact reproduction",
+    "Historical 19988-row audit snapshot unchanged"
+  ]
+}
